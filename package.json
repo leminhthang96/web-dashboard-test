@@ -67,6 +67,11 @@
     "zod": "^4.4.3",
     "zustand": "^5.0.9"
   },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "5.10.0"
+    }
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@types/node": "^25.0.3",
