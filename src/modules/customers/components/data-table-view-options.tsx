@@ -13,6 +13,16 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 
+const columnLabels: Record<string, string> = {
+  name: "Tên",
+  category: "Danh mục",
+  address: "Địa chỉ",
+  email: "Email",
+  phone: "Điện thoại",
+  gender: "Giới tính",
+  notes: "Ghi chú",
+}
+
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>
 }
@@ -26,14 +36,14 @@ export function DataTableViewOptions<TData>({
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto hidden h-8 lg:flex cursor-pointer mr-2"
+          className="h-8"
         >
-          <Settings2 />
-          View
+          <Settings2 className="size-4" />
+          Ẩn / hiện cột
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[150px]">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Chọn cột hiển thị</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {table
           .getAllColumns()
@@ -45,11 +55,10 @@ export function DataTableViewOptions<TData>({
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize cursor-pointer"
                 checked={column.getIsVisible()}
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
               >
-                {column.id}
+                {columnLabels[column.id] ?? column.id}
               </DropdownMenuCheckboxItem>
             )
           })}

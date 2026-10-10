@@ -1,150 +1,108 @@
-import { onAuthStateChanged, type User } from "firebase/auth"
 import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore"
+  customerFormSchema,
+  customerSchema,
+  type Customer,
+  type CustomerFormData,
+} from "./types/customer-types"
 
-import { auth, db } from "@/lib/firebase/client"
-import { customerMockData } from "./customer-mock-data"
-import type { Customer } from "./types/customer-types"
-
-const CUSTOMERS_COLLECTION = "customers"
-
-// Cache for the auth-ready promise so we only subscribe once.
-let authReadyPromise: Promise<User | null> | null = null
-
-/**
- * Resolves once Firebase Auth has finished initialising (on page reload
- * the restored session is async).  Returns the current user or null.
- */
-function waitForAuth(): Promise<User | null> {
-  if (!authReadyPromise) {
-    authReadyPromise = new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        // onAuthStateChanged fires once immediately with the current state.
-        // Unsubscribe right away – we only need the initial value.
-        unsubscribe()
-        resolve(user)
-      })
-    })
-  }
-  return authReadyPromise
+interface ApiResult<T = unknown> {
+  success: boolean
+  message?: string
+  data?: T
+  errors?: Record<string, string[]>
 }
 
-/**
- * RLS (Row-Level Security): Returns the current authenticated user's UID.
- * Waits for Firebase Auth to finish restoring the session, then returns
- * the UID.  Throws if no user is signed in.
- */
-async function getCurrentUserId(): Promise<string> {
-  const user = await waitForAuth()
-  if (!user) {
+async function readApiResult<T>(response: Response): Promise<ApiResult<T>> {
+  try {
+    return (await response.json()) as ApiResult<T>
+  } catch {
+    return {
+      success: false,
+      message: "Máy chủ trả về dữ liệu không hợp lệ.",
+    }
+  }
+}
+
+function getApiErrorMessage<T>(
+  response: Response,
+  result: ApiResult<T>,
+  fallback: string
+): string {
+  if (result.message) return result.message
+  if (response.status === 401) return "Bạn cần đăng nhập để tiếp tục."
+  if (response.status === 403) return "Bạn không có quyền quản trị khách hàng."
+  return fallback
+}
+
+export async function getCustomers(): Promise<Customer[]> {
+  const response = await fetch("/api/admin/customers", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+  })
+  const result = await readApiResult<{ customers: Customer[] }>(response)
+
+  if (!response.ok || !result.success || !result.data) {
     throw new Error(
-      "Authentication required. Please sign in to manage customers."
+      getApiErrorMessage(
+        response,
+        result,
+        "Không thể tải danh sách khách hàng."
+      )
     )
   }
-  return user.uid
+
+  return customerSchema.array().parse(result.data.customers)
 }
 
-/**
- * Get all customers owned by the current authenticated user (RLS).
- * Queries Firestore with a userId filter to enforce row-level security.
- */
-export async function getCustomers(): Promise<Customer[]> {
-  const userId = await getCurrentUserId()
-  const q = query(
-    collection(db, CUSTOMERS_COLLECTION),
-    where("userId", "==", userId)
-  )
-  const snapshot = await getDocs(q)
+export async function createCustomer(
+  formData: CustomerFormData
+): Promise<Customer> {
+  const payload = customerFormSchema.parse(formData)
+  const response = await fetch("/api/admin/customers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  const result = await readApiResult<{ customer: Customer }>(response)
 
-  if (snapshot.empty) {
-    return []
+  if (!response.ok || !result.success || !result.data) {
+    throw new Error(
+      getApiErrorMessage(response, result, "Không thể thêm khách hàng.")
+    )
   }
 
-  const result = snapshot.docs.map((document) => {
-    const data = document.data() as Customer
-
-    return {
-      ...data,
-      id: data.id ?? document.id,
-    }
-  })
-
-  return JSON.parse(JSON.stringify(result))
+  return customerSchema.parse(result.data.customer)
 }
 
-/**
- * Seed mock customer data for the current user (RLS).
- * Each mock customer is tagged with the current user's UID.
- */
-export async function seedCustomersWithClient(): Promise<Customer[]> {
-  const userId = await getCurrentUserId()
-  const batch = writeBatch(db)
-
-  customerMockData.forEach((customer) => {
-    const seededCustomer = { ...customer, userId }
-    batch.set(doc(db, CUSTOMERS_COLLECTION, customer.id), seededCustomer, {
-      merge: true,
-    })
-  })
-
-  await batch.commit()
-  return getCustomers()
-}
-
-/**
- * Create a new customer record owned by the current user (RLS).
- * The userId field is set automatically from the authenticated session.
- */
-export async function createCustomer(customer: Customer): Promise<Customer> {
-  const userId = await getCurrentUserId()
-  const customerWithOwner = { ...customer, userId }
-
-  await setDoc(doc(db, CUSTOMERS_COLLECTION, customer.id), customerWithOwner)
-
-  return customerWithOwner
-}
-
-/**
- * Update a customer record (RLS).
- * The userId is preserved from the existing record to maintain ownership.
- */
 export async function updateCustomer(customer: Customer): Promise<Customer> {
-  const userId = await getCurrentUserId()
-  const customerWithOwner = { ...customer, userId }
+  const payload = customerFormSchema.parse(customer)
+  const response = await fetch(`/api/admin/customers/${customer.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  const result = await readApiResult<{ customer: Customer }>(response)
 
-  await updateDoc(doc(db, CUSTOMERS_COLLECTION, customer.id), customerWithOwner)
+  if (!response.ok || !result.success || !result.data) {
+    throw new Error(
+      getApiErrorMessage(response, result, "Không thể cập nhật khách hàng.")
+    )
+  }
 
-  return customerWithOwner
+  return customerSchema.parse(result.data.customer)
 }
 
-/**
- * Delete a customer record owned by the current user (RLS).
- * Firestore security rules should also verify ownership server-side.
- */
 export async function deleteCustomer(customerId: string): Promise<void> {
-  await getCurrentUserId()
-  await deleteDoc(doc(db, CUSTOMERS_COLLECTION, customerId))
-}
+  const response = await fetch(`/api/admin/customers/${customerId}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+  })
+  const result = await readApiResult(response)
 
-/**
- * Compute statistics from a list of customers.
- */
-export function getCustomerStats(customers: Customer[]) {
-  const total = customers.length
-
-  return {
-    total,
-    new: customers.filter((c) => c.status === "new").length,
-    inProgress: customers.filter((c) => c.status === "in progress").length,
-    converted: customers.filter((c) => c.status === "converted").length,
+  if (!response.ok || !result.success) {
+    throw new Error(
+      getApiErrorMessage(response, result, "Không thể xóa khách hàng.")
+    )
   }
 }

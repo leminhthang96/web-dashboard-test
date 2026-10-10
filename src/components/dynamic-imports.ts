@@ -11,3 +11,17 @@ export const DynamicColorPicker = dynamic(() => import('./color-picker').then(mo
   ssr: false,
   loading: () => React.createElement('div', { className: "h-8 w-8 animate-pulse bg-muted rounded" })
 })
+
+export const DynamicCustomerOverview = dynamic(
+  () =>
+    import("@/modules/customers/components/customer-overview").then((mod) => ({
+      default: mod.CustomerOverview,
+    })),
+  {
+    ssr: false,
+    loading: () =>
+      React.createElement("div", {
+        className: "h-[420px] animate-pulse rounded-xl bg-muted",
+      }),
+  }
+)

@@ -8,8 +8,6 @@ import {
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -24,32 +22,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
+import type { CustomerFormData } from "@/modules/customers/services/types/customer-types"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
-import type { Customer } from "@/modules/customers/services/types/customer-types"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  onAddCustomer?: (customer: Customer) => void | Promise<void>
-  onSeedCustomers?: () => void | Promise<void>
-  isSeedingCustomers?: boolean
+  onAddCustomer?: (customer: CustomerFormData) => void | Promise<void>
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   onAddCustomer,
-  onSeedCustomers,
-  isSeedingCustomers,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
+  const [columnFilters, setColumnFilters] =
+    React.useState<ColumnFiltersState>([])
   const [sorting, setSorting] = React.useState<SortingState>([])
 
   const table = useReactTable({
@@ -70,40 +62,31 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar
-        table={table}
-        onAddCustomer={onAddCustomer}
-        onSeedCustomers={onSeedCustomers}
-        isSeedingCustomers={isSeedingCustomers}
-      />
-      <div className="rounded-md border">
+      <DataTableToolbar table={table} onAddCustomer={onAddCustomer} />
+      <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} colSpan={header.colSpan}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -123,9 +106,9 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-28 text-center text-muted-foreground"
                 >
-                  No results.
+                  Không tìm thấy khách hàng.
                 </TableCell>
               </TableRow>
             )}

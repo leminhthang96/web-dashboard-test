@@ -1,15 +1,14 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
+import { AlertTriangle } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
-
 import {
-  priorities,
-  services,
-  statuses,
+  customerCategoryOptions,
+  customerGenderOptions,
+  getCustomerCategoryLabel,
 } from "@/modules/customers/services/customer-mock-data"
 import type { Customer } from "@/modules/customers/services/types/customer-types"
 import { DataTableColumnHeader } from "./data-table-column-header"
@@ -18,13 +17,11 @@ import { DataTableRowActions } from "./data-table-row-actions"
 interface CustomerColumnActions {
   onUpdateCustomer?: (customer: Customer) => void | Promise<void>
   onDeleteCustomer?: (customerId: string) => void | Promise<void>
-  onDuplicateCustomer?: (customer: Customer) => void | Promise<void>
 }
 
 export function getCustomerColumns({
   onUpdateCustomer,
   onDeleteCustomer,
-  onDuplicateCustomer,
 }: CustomerColumnActions = {}): ColumnDef<Customer>[] {
   return [
     {
@@ -36,43 +33,74 @@ export function getCustomerColumns({
             (table.getIsSomePageRowsSelected() && "indeterminate")
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-          className="translate-y-[2px] cursor-pointer"
+          aria-label="Chọn tất cả"
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-          className="translate-y-[2px] cursor-pointer"
+          aria-label="Chọn khách hàng"
         />
       ),
       enableSorting: false,
       enableHiding: false,
     },
     {
-      accessorKey: "id",
+      accessorKey: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="ID" />
+        <DataTableColumnHeader column={column} title="Tên" />
       ),
-      cell: ({ row }) => (
-        <div className="w-[90px] font-medium">{row.getValue("id")}</div>
-      ),
+      cell: ({ row }) => {
+        const customer = row.original
+
+        return (
+          <div className="flex min-w-40 items-center gap-2">
+            <span className="font-medium">{customer.name}</span>
+            {customer.dataWarnings.length ? (
+              <span
+                className="text-amber-600"
+                title={customer.dataWarnings.join("; ")}
+              >
+                <AlertTriangle className="size-4" />
+                <span className="sr-only">
+                  {customer.dataWarnings.join("; ")}
+                </span>
+              </span>
+            ) : null}
+          </div>
+        )
+      },
+      sortingFn: "alphanumeric",
+      filterFn: "includesString",
       enableHiding: false,
     },
     {
-      accessorKey: "fullName",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Full Name" />
-      ),
+      accessorKey: "category",
+      header: "Danh mục",
+      cell: ({ row }) => {
+        const value = row.getValue<Customer["category"]>("category")
+        const category = customerCategoryOptions.find(
+          (option) => option.value === value
+        )
+        return (
+          <Badge variant="outline">
+            {category?.label ?? getCustomerCategoryLabel(value)}
+          </Badge>
+        )
+      },
+      filterFn: "equalsString",
+      enableSorting: false,
+    },
+    {
+      accessorKey: "address",
+      header: "Địa chỉ",
       cell: ({ row }) => (
-        <div className="flex space-x-2">
-          <span className="max-w-[200px] truncate font-medium">
-            {row.getValue("fullName")}
-          </span>
-        </div>
+        <span className="block max-w-52 truncate">
+          {row.getValue("address") || "—"}
+        </span>
       ),
+      enableSorting: false,
     },
     {
       accessorKey: "email",
@@ -80,107 +108,46 @@ export function getCustomerColumns({
         <DataTableColumnHeader column={column} title="Email" />
       ),
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <a
+          href={`mailto:${row.getValue<string>("email")}`}
+          className="text-primary hover:underline"
+        >
           {row.getValue("email")}
-        </span>
+        </a>
       ),
+      sortingFn: "alphanumeric",
     },
     {
-      accessorKey: "phoneNumber",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Phone" />
-      ),
-      cell: ({ row }) => (
-        <span className="text-sm">{row.getValue("phoneNumber")}</span>
-      ),
+      accessorKey: "phone",
+      header: "Điện thoại",
+      cell: ({ row }) => row.getValue("phone") || "—",
+      enableSorting: false,
     },
     {
-      accessorKey: "serviceName",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Service" />
-      ),
+      accessorKey: "gender",
+      header: "Giới tính",
       cell: ({ row }) => {
-        const service = services.find(
-          (s) => s.value === row.getValue("serviceName")
+        const value = row.getValue<Customer["gender"]>("gender")
+        const gender = customerGenderOptions.find(
+          (option) => option.value === value
         )
-
-        if (!service) {
-          return null
-        }
-
-        return (
-          <div className="flex w-[140px] items-center">
-            <Badge variant="outline">{service.label}</Badge>
-          </div>
-        )
+        return gender?.label ?? "—"
       },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
+      filterFn: "equalsString",
+      enableSorting: false,
     },
     {
-      accessorKey: "status",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Status" />
-      ),
+      accessorKey: "notes",
+      header: "Ghi chú",
       cell: ({ row }) => {
-        const status = statuses.find((s) => s.value === row.getValue("status"))
-
-        if (!status) {
-          return null
-        }
-
+        const notes = row.getValue<string>("notes")
         return (
-          <div className="flex w-[130px] items-center">
-            {status.icon && (
-              <status.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-            )}
-            <span className="text-sm">{status.label}</span>
-          </div>
+          <span className="block max-w-64 truncate" title={notes}>
+            {notes || "—"}
+          </span>
         )
       },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
-    },
-    {
-      accessorKey: "priority",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Priority" />
-      ),
-      cell: ({ row }) => {
-        const priority = priorities.find(
-          (p) => p.value === row.getValue("priority")
-        )
-
-        if (!priority) {
-          return null
-        }
-
-        const priorityColors = {
-          vip: "border-purple-600 text-purple-700 dark:text-purple-400",
-          high: "border-red-700 text-red-700 dark:text-red-400",
-          medium: "border-blue-500 text-blue-700 dark:text-blue-400",
-          low: "border-gray-500 text-gray-700 dark:text-gray-400",
-        }
-
-        return (
-          <div className="flex items-center">
-            <Badge
-              variant="outline"
-              className={cn(
-                "pl-2",
-                priorityColors[priority.value as keyof typeof priorityColors]
-              )}
-            >
-              <span className="text-sm">{priority.label}</span>
-            </Badge>
-          </div>
-        )
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
+      enableSorting: false,
     },
     {
       id: "actions",
@@ -189,9 +156,10 @@ export function getCustomerColumns({
           row={row}
           onUpdateCustomer={onUpdateCustomer}
           onDeleteCustomer={onDeleteCustomer}
-          onDuplicateCustomer={onDuplicateCustomer}
         />
       ),
+      enableSorting: false,
+      enableHiding: false,
     },
   ]
 }

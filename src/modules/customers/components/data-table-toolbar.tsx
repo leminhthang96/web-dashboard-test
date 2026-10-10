@@ -1,7 +1,7 @@
 "use client"
 
 import type { Table } from "@tanstack/react-table"
-import { Database, RefreshCcw } from "lucide-react"
+import { FileDown, RefreshCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,196 +12,150 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { DataTableViewOptions } from "./data-table-view-options"
-import { AddCustomerModal } from "./add-customer-modal"
-
 import {
-  priorities,
-  services,
-  statuses,
+  customerCategoryOptions,
+  getCustomerCategoryLabel,
 } from "@/modules/customers/services/customer-mock-data"
-import type { Customer } from "@/modules/customers/services/types/customer-types"
+import type {
+  Customer,
+  CustomerFormData,
+} from "@/modules/customers/services/types/customer-types"
+import { AddCustomerModal } from "./add-customer-modal"
+import { DataTableViewOptions } from "./data-table-view-options"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
-  onAddCustomer?: (customer: Customer) => void | Promise<void>
-  onSeedCustomers?: () => void | Promise<void>
-  isSeedingCustomers?: boolean
+  onAddCustomer?: (customer: CustomerFormData) => void | Promise<void>
 }
 
 export function DataTableToolbar<TData>({
   table,
   onAddCustomer,
-  onSeedCustomers,
-  isSeedingCustomers,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
-
-  const handleStatusChange = (value: string) => {
-    const column = table.getColumn("status")
-    if (value === "all") {
-      column?.setFilterValue(undefined)
-    } else {
-      column?.setFilterValue(value)
-    }
-  }
-
-  const handleServiceChange = (value: string) => {
-    const column = table.getColumn("serviceName")
-    if (value === "all") {
-      column?.setFilterValue(undefined)
-    } else {
-      column?.setFilterValue(value)
-    }
-  }
-
-  const handlePriorityChange = (value: string) => {
-    const column = table.getColumn("priority")
-    if (value === "all") {
-      column?.setFilterValue(undefined)
-    } else {
-      column?.setFilterValue(value)
-    }
-  }
-
-  const statusFilter = table.getColumn("status")?.getFilterValue() as
+  const categoryFilter = table.getColumn("category")?.getFilterValue() as
     | string
     | undefined
-  const serviceFilter = table.getColumn("serviceName")?.getFilterValue() as
-    | string
-    | undefined
-  const priorityFilter = table.getColumn("priority")?.getFilterValue() as
-    | string
-    | undefined
+  const categoryLabels = new Map<string, string>(
+    customerCategoryOptions.map((option) => [option.value, option.label])
+  )
+
+  table.getCoreRowModel().rows.forEach((row) => {
+    const category = (row.original as Customer).category
+    if (!categoryLabels.has(category)) {
+      categoryLabels.set(category, getCustomerCategoryLabel(category))
+    }
+  })
+
+  const availableCategories = Array.from(categoryLabels, ([value, label]) => ({
+    value,
+    label,
+  })).sort((left, right) => left.label.localeCompare(right.label, "vi"))
+
+  function handleExportCsv() {
+    const customers = table
+      .getPrePaginationRowModel()
+      .rows.map((row) => row.original as Customer)
+    const escapeCsv = (value: unknown) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`
+    const header = [
+      "Tên",
+      "Danh mục",
+      "Địa chỉ",
+      "Email",
+      "Điện thoại",
+      "Giới tính",
+      "Ghi chú",
+    ]
+    const rows = customers.map((customer) => [
+      customer.name,
+      categoryLabels.get(customer.category) ?? customer.category,
+      customer.address,
+      customer.email,
+      customer.phone,
+      customer.gender === "male"
+        ? "Nam"
+        : customer.gender === "female"
+          ? "Nữ"
+          : "",
+      customer.notes,
+    ])
+    const csv = [header, ...rows]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\r\n")
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8",
+    })
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = downloadUrl
+    link.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(downloadUrl)
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Filter Section */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {/* Status Filter */}
-          <Select
-            value={statusFilter || "all"}
-            onValueChange={handleStatusChange}
-          >
-            <SelectTrigger className="w-full cursor-pointer">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="cursor-pointer">
-                All Status
-              </SelectItem>
-              {statuses.map((status) => (
-                <SelectItem
-                  key={status.value}
-                  value={status.value}
-                  className="cursor-pointer"
-                >
-                  <div className="flex items-center">
-                    {status.icon && (
-                      <status.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    )}
-                    {status.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Input
+          placeholder="Tìm theo tên khách hàng..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          onChange={(event) =>
+            table.getColumn("name")?.setFilterValue(event.target.value)
+          }
+          className="min-w-0 flex-1 sm:max-w-72"
+        />
 
-          {/* Service Filter */}
-          <Select
-            value={serviceFilter || "all"}
-            onValueChange={handleServiceChange}
-          >
-            <SelectTrigger className="w-full cursor-pointer">
-              <SelectValue placeholder="Service" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="cursor-pointer">
-                All Services
+        <Select
+          value={categoryFilter ?? "all"}
+          onValueChange={(value) =>
+            table
+              .getColumn("category")
+              ?.setFilterValue(value === "all" ? undefined : value)
+          }
+        >
+          <SelectTrigger className="w-40 shrink-0 sm:w-44">
+            <SelectValue placeholder="Danh mục" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả danh mục</SelectItem>
+            {availableCategories.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                {category.label}
               </SelectItem>
-              {services.map((service) => (
-                <SelectItem
-                  key={service.value}
-                  value={service.value}
-                  className="cursor-pointer"
-                >
-                  {service.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            ))}
+          </SelectContent>
+        </Select>
 
-          {/* Priority Filter */}
-          <Select
-            value={priorityFilter || "all"}
-            onValueChange={handlePriorityChange}
-          >
-            <SelectTrigger className="w-full cursor-pointer">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="cursor-pointer">
-                All Priorities
-              </SelectItem>
-              {priorities.map((priority) => (
-                <SelectItem
-                  key={priority.value}
-                  value={priority.value}
-                  className="cursor-pointer"
-                >
-                  <div className="flex items-center">
-                    {priority.icon && (
-                      <priority.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    )}
-                    {priority.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => table.resetColumnFilters()}
+          disabled={!isFiltered}
+          aria-label="Đặt lại bộ lọc"
+          title="Đặt lại bộ lọc"
+        >
+          <RefreshCcw className="size-4" />
+        </Button>
       </div>
 
-      {/* Search and Actions Section */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <Input
-            placeholder="Search Customer"
-            value={
-              (table.getColumn("fullName")?.getFilterValue() as string) ?? ""
-            }
-            onChange={(event) =>
-              table.getColumn("fullName")?.setFilterValue(event.target.value)
-            }
-            className="w-[200px] lg:w-[300px] cursor-text"
-          />
-          <Button
-            variant="outline"
-            onClick={() => table.resetColumnFilters()}
-            className="px-3 cursor-pointer"
-            disabled={!isFiltered}
-          >
-            <RefreshCcw className="h-4 w-4" />
-            <span className="hidden lg:block">Reset Filters</span>
-          </Button>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={onSeedCustomers}
-            disabled={!onSeedCustomers || isSeedingCustomers}
-          >
-            <Database className="h-4 w-4" />
-            <span className="hidden lg:block">
-              {isSeedingCustomers ? "Seeding..." : "Seed Data"}
-            </span>
-          </Button>
-          <DataTableViewOptions table={table} />
-          <AddCustomerModal onAddCustomer={onAddCustomer} />
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleExportCsv}
+          disabled={table.getPrePaginationRowModel().rows.length === 0}
+        >
+          <FileDown className="size-4" />
+          Xuất file
+        </Button>
+        <DataTableViewOptions table={table} />
+        <AddCustomerModal onAddCustomer={onAddCustomer} />
       </div>
     </div>
   )

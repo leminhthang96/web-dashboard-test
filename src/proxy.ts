@@ -1,9 +1,12 @@
+import NextAuth from "next-auth"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { auth } from "./auth"
+
+import { authConfig } from "./auth.config"
 import { hasAdminAccess } from "./lib/auth/permissions"
 
-export async function proxy(request: NextRequest) {
+const { auth } = NextAuth(authConfig)
+
+export const proxy = auth((request) => {
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/")
 
   // API routes enforce their own authorization rules.
@@ -11,9 +14,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const session = await auth()
-
-  const isLoggedIn = !!session?.user
+  const isLoggedIn = !!request.auth?.user
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/sign-in") ||
     request.nextUrl.pathname.startsWith("/sign-up") ||
@@ -33,13 +34,13 @@ export async function proxy(request: NextRequest) {
 
   if (
     request.nextUrl.pathname.startsWith("/admin") &&
-    !hasAdminAccess(session.user)
+    !hasAdminAccess(request.auth?.user)
   ) {
     return NextResponse.redirect(new URL("/errors/forbidden", request.url))
   }
 
   return NextResponse.next()
-}
+})
 
 export const config = {
   matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)", "/"],

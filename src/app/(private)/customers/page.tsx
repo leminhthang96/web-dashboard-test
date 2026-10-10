@@ -1,92 +1,91 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ArrowUp, BarChart3, CheckCircle2, Clock, Users } from "lucide-react"
+import { RefreshCcw } from "lucide-react"
+import { toast } from "sonner"
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { DynamicCustomerOverview } from "@/components/dynamic-imports"
 import { getCustomerColumns } from "@/modules/customers/components/columns"
 import { DataTable } from "@/modules/customers/components/data-table"
 import {
   createCustomer,
   deleteCustomer,
   getCustomers,
-  getCustomerStats,
-  seedCustomersWithClient,
   updateCustomer,
 } from "@/modules/customers/services/customer-services"
-import type { Customer } from "@/modules/customers/services/types/customer-types"
+import type {
+  Customer,
+  CustomerFormData,
+} from "@/modules/customers/services/types/customer-types"
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
-  const [isSeedingCustomers, setIsSeedingCustomers] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const refreshCustomers = useCallback(async () => {
-    const customerList = await getCustomers()
-    setCustomers(customerList)
+    try {
+      setLoadError(null)
+      const customerList = await getCustomers()
+      setCustomers(customerList)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách khách hàng."
+      setLoadError(message)
+      throw error
+    }
   }, [])
 
   useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        await refreshCustomers()
-      } catch (error) {
+    refreshCustomers()
+      .catch((error) => {
         console.error("Failed to load customers:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadCustomers()
+      })
+      .finally(() => setLoading(false))
   }, [refreshCustomers])
 
-  const handleAddCustomer = useCallback(
-    async (newCustomer: Customer) => {
-      await createCustomer(newCustomer)
-      await refreshCustomers()
-    },
-    [refreshCustomers]
-  )
+  useEffect(() => {
+    const refreshExternalCustomers = () => {
+      void refreshCustomers().catch((error) => {
+        console.error("Failed to refresh customers:", error)
+      })
+    }
+    const intervalId = window.setInterval(refreshExternalCustomers, 30000)
+
+    window.addEventListener("focus", refreshExternalCustomers)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener("focus", refreshExternalCustomers)
+    }
+  }, [refreshCustomers])
+
+  const handleAddCustomer = useCallback(async (data: CustomerFormData) => {
+    const createdCustomer = await createCustomer(data)
+    setCustomers((current) => [createdCustomer, ...current])
+    toast.success("Đã thêm khách hàng")
+  }, [])
 
   const handleUpdateCustomer = useCallback(async (customer: Customer) => {
-    await updateCustomer(customer)
-    setCustomers((prev) =>
-      prev.map((item) => (item.id === customer.id ? customer : item))
+    const updatedCustomer = await updateCustomer(customer)
+    setCustomers((current) =>
+      current.map((item) =>
+        item.id === updatedCustomer.id ? updatedCustomer : item
+      )
     )
+    toast.success("Đã cập nhật khách hàng")
   }, [])
 
   const handleDeleteCustomer = useCallback(async (customerId: string) => {
     await deleteCustomer(customerId)
-    setCustomers((prev) => prev.filter((c) => c.id !== customerId))
-  }, [])
-
-  const handleDuplicateCustomer = useCallback(async (customer: Customer) => {
-    const duplicate: Customer = {
-      ...customer,
-      id: `CUS-${Date.now()}`,
-      fullName: `${customer.fullName} (Copy)`,
-    }
-
-    await createCustomer(duplicate)
-    setCustomers((prev) => [duplicate, ...prev])
-  }, [])
-
-  const handleSeedCustomers = useCallback(async () => {
-    try {
-      setIsSeedingCustomers(true)
-      const seededCustomers = await seedCustomersWithClient()
-      setCustomers(seededCustomers)
-    } catch (error) {
-      console.error("Failed to seed customers:", error)
-    } finally {
-      setIsSeedingCustomers(false)
-    }
+    setCustomers((current) =>
+      current.filter((customer) => customer.id !== customerId)
+    )
+    toast.success("Đã xóa khách hàng")
   }, [])
 
   const customerColumns = useMemo(
@@ -94,163 +93,56 @@ export default function CustomersPage() {
       getCustomerColumns({
         onUpdateCustomer: handleUpdateCustomer,
         onDeleteCustomer: handleDeleteCustomer,
-        onDuplicateCustomer: handleDuplicateCustomer,
       }),
-    [handleDeleteCustomer, handleDuplicateCustomer, handleUpdateCustomer]
+    [handleDeleteCustomer, handleUpdateCustomer]
   )
-
-  const stats = getCustomerStats(customers)
-  const getPercent = (value: number) =>
-    stats.total > 0 ? Math.round((value / stats.total) * 100) : 0
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-muted-foreground">Loading customers...</div>
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-muted-foreground">
+          Đang tải danh sách khách hàng...
+        </div>
       </div>
     )
   }
 
   return (
-    <>
-      {/* Page Header */}
-      <div className="flex flex-col gap-2 px-4 md:px-6">
-        <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
+    <div className="space-y-6 px-4 md:px-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">Khách hàng</h1>
         <p className="text-muted-foreground">
-          Manage your customer list with Row-Level Security (RLS). Each user
-          only sees customers they own.
+          Quản lý tập trung khách hàng từ Firebase Console, landing page và
+          các website bên ngoài.
         </p>
       </div>
 
-      {/* Mobile view placeholder */}
-      <div className="md:hidden px-4 md:px-6">
-        <div className="flex items-center justify-center h-96 border rounded-lg bg-muted/20">
-          <div className="text-center p-8">
-            <h3 className="text-lg font-semibold mb-2">Customers Dashboard</h3>
-            <p className="text-muted-foreground">
-              Please use a larger screen to view the full customers interface.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop view */}
-      <div className="hidden h-full flex-1 flex-col space-y-6 px-4 md:px-6 md:flex">
-        {/* Stats Cards */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Total Customers
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{stats.total}</span>
-                    <span className="flex items-center gap-0.5 text-sm text-green-500">
-                      <ArrowUp className="size-3.5" />
-                      {getPercent(stats.converted)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <Users className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    New
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{stats.new}</span>
-                    <span className="flex items-center gap-0.5 text-sm text-green-500">
-                      <ArrowUp className="size-3.5" />
-                      {getPercent(stats.new)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <BarChart3 className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    In Progress
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {stats.inProgress}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-sm text-green-500">
-                      <ArrowUp className="size-3.5" />
-                      {getPercent(stats.inProgress)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <Clock className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Converted
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {stats.converted}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-sm text-green-500">
-                      <ArrowUp className="size-3.5" />
-                      {getPercent(stats.converted)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <CheckCircle2 className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Data Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Management</CardTitle>
-            <CardDescription>
-              View, filter, and manage all your customers. Data is scoped to
-              your account via RLS.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={customers}
-              columns={customerColumns}
-              onAddCustomer={handleAddCustomer}
-              onSeedCustomers={handleSeedCustomers}
-              isSeedingCustomers={isSeedingCustomers}
-            />
+      {loadError ? (
+        <Card className="border-destructive/50">
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-destructive">{loadError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void refreshCustomers().catch(() => undefined)
+              }}
+            >
+              <RefreshCcw className="size-4" />
+              Thử lại
+            </Button>
           </CardContent>
         </Card>
-      </div>
-    </>
+      ) : (
+        <div className="flex flex-col gap-8">
+          <DynamicCustomerOverview customers={customers} />
+          <DataTable
+            data={customers}
+            columns={customerColumns}
+            onAddCustomer={handleAddCustomer}
+          />
+        </div>
+      )}
+    </div>
   )
 }

@@ -18,16 +18,19 @@ service cloud.firestore {
       // Public (unauthenticated) creates are allowed for the lead capture form
       // (userId will be empty string for public submissions).
       allow create: if (request.auth == null
-        && request.resource.data.userId == "")
+        && request.resource.data.userId == ""
+        && hasRequiredCustomerFields())
         || (request.auth != null
-        && request.resource.data.userId == request.auth.uid);
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredCustomerFields());
 
       // Update: user must be authenticated and own the document.
       // The userId field cannot be changed to a different user.
       // Admins can update any customer record.
       allow update: if request.auth != null
         && (resource.data.userId == request.auth.uid || isAdmin())
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredCustomerFields();
 
       // Delete: user must be authenticated and own the document.
       // Admins can delete any customer record.
@@ -63,6 +66,21 @@ service cloud.firestore {
       return request.auth != null
         && 'roles' in request.auth.token
         && request.auth.token.roles.has('admin');
+    }
+
+    function hasRequiredCustomerFields() {
+      return request.resource.data.keys().hasAll([
+          'name',
+          'category',
+          'email',
+          'userId'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.category is string
+        && request.resource.data.category.size() > 0
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0;
     }
   }
 }
