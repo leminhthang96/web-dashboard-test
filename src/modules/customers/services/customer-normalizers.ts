@@ -1,47 +1,9 @@
-import type { Customer } from "@/modules/customers/services/types/customer-types"
+import type { Customer } from "./types/customer-types"
 
-type FirestoreDateLike =
-  | Date
-  | string
-  | number
-  | { toDate?: () => Date; seconds?: number; nanoseconds?: number }
-
-const FIREBASE_ADMIN_SETUP_MESSAGE =
-  "Firebase Admin chưa được cấu hình. Hãy thêm FIREBASE_ADMIN_PROJECT_ID, " +
-  "FIREBASE_ADMIN_CLIENT_EMAIL và FIREBASE_ADMIN_PRIVATE_KEY vào .env.local, " +
-  "sau đó khởi động lại máy chủ."
-
-function getErrorText(error: unknown): string {
-  if (error instanceof Error) {
-    const cause = "cause" in error ? getErrorText(error.cause) : ""
-    return `${error.name} ${error.message} ${cause}`.toLocaleLowerCase()
-  }
-
-  return typeof error === "string" ? error.toLocaleLowerCase() : ""
-}
-
-export function getCustomerApiError(
-  error: unknown,
-  fallbackMessage: string
-): { message: string; status: number } {
-  const errorText = getErrorText(error)
-  const credentialErrorPatterns = [
-    "default credentials",
-    "invalid credential",
-    "invalid-credential",
-    "could not refresh access token",
-    "invalid_grant",
-    "invalid_client",
-    "failed to parse private key",
-    "decod",
-    "unauthenticated",
-  ]
-
-  if (credentialErrorPatterns.some((pattern) => errorText.includes(pattern))) {
-    return { message: FIREBASE_ADMIN_SETUP_MESSAGE, status: 503 }
-  }
-
-  return { message: fallbackMessage, status: 500 }
+type FirestoreDateLike = {
+  toDate?: () => Date
+  seconds?: number
+  nanoseconds?: number
 }
 
 function readString(
@@ -98,11 +60,7 @@ function normalizeDate(value: unknown, fallback: string): string {
   if (value instanceof Date) return value.toISOString()
 
   if (value && typeof value === "object") {
-    const dateLike = value as FirestoreDateLike & {
-      toDate?: () => Date
-      seconds?: number
-      nanoseconds?: number
-    }
+    const dateLike = value as FirestoreDateLike
 
     if (typeof dateLike.toDate === "function") {
       return dateLike.toDate().toISOString()

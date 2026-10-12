@@ -30,13 +30,12 @@ import { RoleFormDialog } from "@/modules/users/components/role-form-dialog"
 import { StatCards } from "@/modules/users/components/stat-cards"
 import { getUserColumns } from "@/modules/users/components/user-columns"
 import { UserDataTable } from "@/modules/users/components/user-data-table"
-import { UserFormDialog } from "@/modules/users/components/user-form-dialog"
 import { deleteRole, getRoles, seedRolesWithClient } from "@/modules/users/services/role-services"
 import {
   getUserRoles,
   removeAllAssignmentsForRole,
 } from "@/modules/users/services/user-role-services"
-import { deleteUserViaApi, getUsers } from "@/modules/users/services/user-services"
+import { getUsers } from "@/modules/users/services/user-services"
 import type {
   Role,
   User,
@@ -51,10 +50,6 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [isSeeding, setIsSeeding] = useState(false)
 
-  // User dialogs
-  const [userFormOpen, setUserFormOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-
   // Role dialogs
   const [roleFormOpen, setRoleFormOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
@@ -64,11 +59,11 @@ export default function UsersPage() {
   const [assigningUser, setAssigningUser] = useState<User | null>(null)
 
   // Delete confirmation
-  const [pendingDelete, setPendingDelete] = useState<
-    | { kind: "user"; uid: string; name: string }
-    | { kind: "role"; roleId: string; name: string }
-    | null
-  >(null)
+  const [pendingDelete, setPendingDelete] = useState<{
+    kind: "role"
+    roleId: string
+    name: string
+  } | null>(null)
 
   const refreshAll = useCallback(async () => {
     const [userList, roleList, urList] = await Promise.all([
@@ -108,55 +103,9 @@ export default function UsersPage() {
     }
   }, [refreshAll])
 
-  // =====================================================
-  // User actions
-  // =====================================================
-
-  const handleAddUser = () => {
-    setEditingUser(null)
-    setUserFormOpen(true)
-  }
-
-  const handleEditUser = (user: User) => {
-    setEditingUser(user)
-    setUserFormOpen(true)
-  }
-
-  const handleDeleteUser = (uid: string) => {
-    const u = users.find((x) => x.uid === uid)
-    setPendingDelete({
-      kind: "user",
-      uid,
-      name: u?.name ?? uid,
-    })
-  }
-
-  const confirmDeleteUser = async () => {
-    if (!pendingDelete || pendingDelete.kind !== "user") return
-    try {
-      const result = await deleteUserViaApi(pendingDelete.uid)
-      if (!result.success) {
-        toast.error(result.message ?? "Xóa thất bại")
-        return
-      }
-      toast.success("Đã xóa người dùng khỏi Firebase Auth")
-      await refreshAll()
-    } catch (error) {
-      console.error(error)
-      toast.error("Xóa thất bại")
-    } finally {
-      setPendingDelete(null)
-    }
-  }
-
   const handleAssignRoles = (user: User) => {
     setAssigningUser(user)
     setAssignRolesOpen(true)
-  }
-
-  const handleResetPassword = (user: User) => {
-    setEditingUser(user)
-    setUserFormOpen(true)
   }
 
   const handleUserSaved = async () => {
@@ -208,10 +157,7 @@ export default function UsersPage() {
   const userColumns = useMemo(
     () =>
       getUserColumns({
-        onEditUser: handleEditUser,
-        onDeleteUser: handleDeleteUser,
         onAssignRoles: handleAssignRoles,
-        onResetPassword: handleResetPassword,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [users, roles, userRoles]
@@ -249,7 +195,7 @@ export default function UsersPage() {
       <div className="flex flex-col gap-2 px-4 md:px-6">
         <h1 className="text-2xl font-bold tracking-tight">Người dùng & Phân quyền</h1>
         <p className="text-muted-foreground">
-          Quản lý tài khoản Firebase Auth và gán role cho người dùng trong hệ thống.
+          Xem hồ sơ Firestore và gán role cho người dùng trong hệ thống.
         </p>
       </div>
 
@@ -280,9 +226,8 @@ export default function UsersPage() {
               <CardHeader>
                 <CardTitle>Quản lý người dùng</CardTitle>
                 <CardDescription>
-                  Danh sách được lấy trực tiếp từ Firebase Auth và ghép với profile
-                  trong Firestore. Mỗi người dùng có một tài khoản Auth với uid tương
-                  ứng.
+                  Danh sách chỉ gồm các hồ sơ Firestore mà tài khoản hiện tại
+                  được phép đọc. Quản lý tài khoản Authentication đã được tắt.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -291,7 +236,6 @@ export default function UsersPage() {
                   columns={userColumns}
                   roles={roles}
                   userRoles={userRoles}
-                  onAddUser={handleAddUser}
                 />
               </CardContent>
             </Card>
@@ -322,13 +266,6 @@ export default function UsersPage() {
       </div>
 
       {/* Dialogs */}
-      <UserFormDialog
-        open={userFormOpen}
-        onOpenChange={setUserFormOpen}
-        user={editingUser}
-        onSuccess={handleUserSaved}
-      />
-
       <RoleFormDialog
         open={roleFormOpen}
         onOpenChange={setRoleFormOpen}
@@ -350,26 +287,11 @@ export default function UsersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingDelete?.kind === "user"
-                ? "Xóa người dùng"
-                : "Xóa role"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Xóa role</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete?.kind === "user" ? (
-                <>
-                  Bạn có chắc muốn xóa người dùng{" "}
-                  <span className="font-semibold">{pendingDelete.name}</span>?
-                  Hành động này sẽ xóa tài khoản Firebase Auth, profile Firestore và mọi
-                  role đã gán.
-                </>
-              ) : (
-                <>
-                  Bạn có chắc muốn xóa role{" "}
-                  <span className="font-semibold">{pendingDelete?.name}</span>?
-                  Mọi gán role cho người dùng cũng sẽ bị xóa.
-                </>
-              )}
+              Bạn có chắc muốn xóa role{" "}
+              <span className="font-semibold">{pendingDelete?.name}</span>?
+              Mọi gán role cho người dùng cũng sẽ bị xóa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -378,11 +300,7 @@ export default function UsersPage() {
               className="cursor-pointer bg-red-600 hover:bg-red-700"
               onClick={(e) => {
                 e.preventDefault()
-                if (pendingDelete?.kind === "user") {
-                  confirmDeleteUser()
-                } else if (pendingDelete?.kind === "role") {
-                  confirmDeleteRole()
-                }
+                confirmDeleteRole()
               }}
             >
               Xóa

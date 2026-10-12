@@ -30,6 +30,7 @@ async function verifyFirebaseIdToken(idToken: string) {
       displayName?: string
       email?: string
       photoUrl?: string
+      customAttributes?: string
     }>
   }
 
@@ -43,6 +44,7 @@ async function verifyFirebaseIdToken(idToken: string) {
     name: user.displayName || user.email?.split("@")[0] || "User",
     email: user.email,
     picture: user.photoUrl || "",
+    customAttributes: user.customAttributes,
   }
 }
 
@@ -66,7 +68,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const authorization = await getUserAuthorization(
             firebaseUser.uid,
             firebaseUser.email,
-            firebaseUser.name
+            firebaseUser.name,
+            firebaseUser.customAttributes
           )
 
           return {
@@ -90,14 +93,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.uid = user.id
         token.roles = user.roles
         token.isAdmin = user.isAdmin
-      } else if (token.uid) {
-        const authorization = await getUserAuthorization(
-          token.uid,
-          token.email,
-          token.name
-        )
-        token.roles = authorization.roles
-        token.isAdmin = authorization.isAdmin
       }
       return token
     },

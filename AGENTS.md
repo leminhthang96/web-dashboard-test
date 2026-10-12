@@ -31,8 +31,8 @@ Next.js 16 (App Router, Turbopack) admin dashboard template: TypeScript 5.9, Tai
 The auth chain spans five files — understand it before touching any of them:
 
 1. **Firebase client Auth** (`src/lib/firebase/auth.ts`, `client.ts`) handles sign-in/sign-up in the browser and produces a Firebase ID token.
-2. **NextAuth CredentialsProvider** (`src/auth.ts`) verifies that token server-side via the Firebase REST endpoint `identitytoolkit.googleapis.com/v1/accounts:lookup` (deliberately _not_ firebase-admin, so login works without Admin SDK creds).
-3. **Role loading** (`src/lib/auth/user-access.ts`): `getUserAuthorization()` reads the `users` profile doc + `users_roles` assignments via the **Admin SDK** and returns `{ roles, isAdmin }`. The jwt callback re-fetches roles on every token refresh, so role changes propagate without re-login. `session.user` is augmented with `id`, `roles: string[]`, `isAdmin` (see `src/types/next-auth.d.ts`).
+2. **NextAuth CredentialsProvider** (`src/auth.ts`) verifies that token server-side via the Firebase REST endpoint `identitytoolkit.googleapis.com/v1/accounts:lookup`.
+3. **Role loading** (`src/lib/auth/user-access.ts`): `getUserAuthorization()` applies the app's trusted admin identifier and returns `{ roles, isAdmin }`. `session.user` is augmented with `id`, `roles: string[]`, `isAdmin` (see `src/types/next-auth.d.ts`).
 4. **Route protection** (`src/proxy.ts`): Next.js 16's `proxy` (this repo does **not** use `middleware.ts`). `/api/*` routes are skipped (they self-protect); auth pages redirect logged-in users to `/dashboard`; everything else requires a session; `/admin/*` additionally requires `hasAdminAccess`.
 5. **Permission helpers** (`src/lib/auth/permissions.ts`): `hasAdminAccess()` (admin role `role-admin`, `isAdmin` flag, or hardcoded `ADMIN_EMAIL = admin@claudecode.ai`) and `hasDocumentManagerAccess()` (`role-document-manager`, admins implicit).
 
@@ -42,13 +42,13 @@ The auth chain spans five files — understand it before touching any of them:
 
 - **Customers — true RLS**: every doc carries `userId`; services (`src/modules/customers/services/customer-services.ts`) wait for the restored Firebase session (`waitForAuth()`), then query `where("userId", "==", uid)`. `firestore.rules` enforces ownership server-side (public unauthenticated create is allowed only with `userId == ""` for the lead-capture form).
 - **Documents — client-side RBAC, no RLS**: `folders`/`documents` collections are open to any authenticated user in `firestore.rules`; mutations are gated in the UI via `hasDocumentManagerAccess(session?.user)` (see `src/app/(private)/documents/page.tsx`). Documents use **soft delete** (`deletedAt`) filtered in `getDocuments()`.
-- **Admin users API** (`src/app/api/admin/users/`): server routes guard with `getAdminApiErrorResponse()` from `src/lib/auth/admin-api.ts` (401 no session / 403 not admin) and operate via Admin SDK (`joinAuthAndProfile` merges Auth `UserRecord` + Firestore profile).
+- **Users**: the dashboard reads Firestore profile documents with the client SDK. It does not list, create, disable, or delete other Firebase Authentication accounts.
 
 ## Architecture: Data Layer
 
 - **Read pattern**: `getFirestoreCollection(name, fallback)` / `getFirestoreDocumentCollection` (`src/lib/firebase/firestore-query.ts`) try Firestore and fall back to bundled mock arrays on empty/error, then `JSON.parse(JSON.stringify(...))` to strip Firestore types. Services for newer features (customers, documents) query Firestore directly instead.
 - **No real-time**: never use `onSnapshot`. Client pages seed state from mock data, fetch in `useEffect`, and own mutations via local state + callbacks.
-- **Client vs Admin SDK**: components/pages import only `@/lib/firebase/client` (`client.ts` validates `NEXT_PUBLIC_FIREBASE_*` env at load and throws on missing vars). `@/lib/firebase/admin` is server-only, lazy-init singleton; env priority: split vars (`FIREBASE_ADMIN_PROJECT_ID`/`CLIENT_EMAIL`/`PRIVATE_KEY`, keep `\n` escapes) → `FIREBASE_SERVICE_ACCOUNT_KEY` JSON blob → ADC.
+- **Firebase SDK**: application code uses only `@/lib/firebase/client`; `client.ts` validates `NEXT_PUBLIC_FIREBASE_*` env at load and throws on missing vars.
 - Collections are plural snake_case (`tasks`, `users`, `users_roles`, `customers`, `documents`, `folders`). Seed with `serverTimestamp()`.
 
 ## Architecture: Feature Module Pattern
@@ -94,7 +94,7 @@ Public API routes (`/api/*`) bypass the proxy and self-protect. Every route file
 
 ## Environment Variables
 
-See `.env.example`. Client: `NEXT_PUBLIC_FIREBASE_*` (7 vars, validated at boot). Server: `AUTH_SECRET` (NextAuth), `FIREBASE_ADMIN_*` or `FIREBASE_SERVICE_ACCOUNT_KEY`, `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, `RESEND_API_KEY`.
+See `.env.example`. Firebase client: `NEXT_PUBLIC_FIREBASE_*` (7 vars, validated at boot). Server: `AUTH_SECRET` (NextAuth), `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`, `RESEND_API_KEY`.
 
 ## Adding a Feature
 

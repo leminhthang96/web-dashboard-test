@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Forms         | react-hook-form + @hookform/resolvers + zod                  |
 | State         | Zustand 5.0.9                                                |
 | Auth/Database | NextAuth.js v5 (Credentials) + Firebase Auth + Firestore     |
-| Storage       | Firebase Storage + Firebase Admin SDK                        |
+| Storage       | Firebase Storage                                             |
 | Charts        | Recharts 3.x                                                 |
 | Theme         | next-themes + custom ThemeProvider + SidebarConfigProvider   |
 | Toast         | sonner 2.x                                                   |
@@ -66,7 +66,6 @@ src/
   lib/
     firebase/
       client.ts                 # Firebase client (app, auth, db, storage) — validate env lúc load
-      admin.ts                  # Firebase Admin SDK (auth, db) — lazy init, hỗ trợ split env + JSON service account
       auth.ts                   # signIn/signUp helpers (client-side)
       firestore-query.ts        # getFirestoreCollection (Firestore + mock fallback)
     utils.ts                    # cn() helper (clsx + tailwind-merge)
@@ -163,15 +162,7 @@ if (!parsed.success) {
 - **No real-time**: **KHÔNG dùng** `onSnapshot`.
 - **CRUD pattern**: KHÔNG viết direct Firestore CRUD trong service — xử lý trên local state (callback pattern ở component).
 - **Timestamps**: `serverTimestamp()` khi seed dữ liệu mock.
-- **Client vs Admin**: components/pages chỉ dùng `client.ts`. Admin SDK ở `lib/firebase/admin.ts` chỉ dành cho server-side scripts.
-
-### Firebase Admin SDK (`src/lib/firebase/admin.ts`)
-
-Lazy-initialized singleton, export `getAdminApp`, `getAdminAuth`, `getAdminDb`. Đọc env theo thứ tự ưu tiên:
-
-1. Split vars: `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY` (escape `\n` trong key).
-2. JSON blob: `FIREBASE_SERVICE_ACCOUNT_KEY` chứa toàn bộ service account.
-3. Application Default Credentials (ADC) — cho Cloud Run/Functions.
+- **Firebase SDK**: components/pages và services chỉ dùng `client.ts`; quyền truy cập được kiểm soát bởi Firestore Rules.
 
 ### Page types
 
@@ -181,7 +172,7 @@ Lazy-initialized singleton, export `getAdminApp`, `getAdminAuth`, `getAdminDb`. 
 ### Auth flow
 
 - Firebase Client Auth xử lý luồng đăng nhập/đăng ký ở frontend.
-- NextAuth `CredentialsProvider` xác thực Firebase ID Token phía server qua Firebase REST `/accounts:lookup` (không dùng firebase-admin cho login flow).
+- NextAuth `CredentialsProvider` xác thực Firebase ID Token phía server qua Firebase REST `/accounts:lookup`.
 - `src/proxy.ts` bảo vệ route trong Next.js 16 bằng cách check NextAuth session cookie. Auth page (`/sign-in`, `/sign-up`, `/forgot-password`) + `/landing` được allow khi logged-out.
 - NextAuth config split: `auth.config.ts` (edge-compatible, không import firebase) + `auth.ts` (node, có providers).
 
@@ -207,11 +198,9 @@ Xem `.env.example` đầy đủ. Nhóm chính:
 
 `client.ts` validate các biến bắt buộc lúc load — thiếu sẽ throw ngay lúc boot.
 
-**Server (NextAuth + Admin)** (server-only):
+**Server** (server-only):
 
 - `AUTH_SECRET` — NextAuth session secret.
-- `FIREBASE_ADMIN_PROJECT_ID`, `FIREBASE_ADMIN_CLIENT_EMAIL`, `FIREBASE_ADMIN_PRIVATE_KEY` — Admin SDK split form (private key phải giữ `\n` escape).
-- `FIREBASE_SERVICE_ACCOUNT_KEY` — full JSON blob (fallback).
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — cho notification integrations.
 
 ## Thêm feature mới

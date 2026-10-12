@@ -1,1 +1,1 @@
-Requires `FIREBASE_SERVICE_ACCOUNT_KEY` for admin routes, and `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` environment variables for the customers route's outbound Telegram notification; otherwise the Telegram call is skipped with a warning log.
+The public customers route optionally uses `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` for outbound Telegram notifications; otherwise the notification is skipped with a warning log.

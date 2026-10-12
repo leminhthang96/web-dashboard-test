@@ -1,108 +1,107 @@
 import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from "firebase/firestore"
+
+import { auth, db } from "@/lib/firebase/client"
+import { isAdminIdentifier } from "@/lib/auth/permissions"
+
+import { normalizeCustomerDocument } from "./customer-normalizers"
+import {
   customerFormSchema,
   customerSchema,
   type Customer,
   type CustomerFormData,
 } from "./types/customer-types"
 
-interface ApiResult<T = unknown> {
-  success: boolean
-  message?: string
-  data?: T
-  errors?: Record<string, string[]>
-}
+const CUSTOMERS_COLLECTION = "customers"
 
-async function readApiResult<T>(response: Response): Promise<ApiResult<T>> {
-  try {
-    return (await response.json()) as ApiResult<T>
-  } catch {
-    return {
-      success: false,
-      message: "Máy chủ trả về dữ liệu không hợp lệ.",
-    }
+async function requireFirebaseUser() {
+  await auth.authStateReady()
+
+  if (!auth.currentUser) {
+    throw new Error("Bạn cần đăng nhập để quản lý khách hàng.")
   }
+
+  return auth.currentUser
 }
 
-function getApiErrorMessage<T>(
-  response: Response,
-  result: ApiResult<T>,
-  fallback: string
-): string {
-  if (result.message) return result.message
-  if (response.status === 401) return "Bạn cần đăng nhập để tiếp tục."
-  if (response.status === 403) return "Bạn không có quyền quản trị khách hàng."
-  return fallback
+async function canReadAllCustomers(): Promise<boolean> {
+  const user = await requireFirebaseUser()
+  const token = await user.getIdTokenResult()
+  const roles = token.claims.roles
+
+  return (
+    isAdminIdentifier(user.email) ||
+    token.claims.admin === true ||
+    (Array.isArray(roles) &&
+      (roles.includes("admin") || roles.includes("role-admin")))
+  )
 }
 
 export async function getCustomers(): Promise<Customer[]> {
-  const response = await fetch("/api/admin/customers", {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-  })
-  const result = await readApiResult<{ customers: Customer[] }>(response)
+  const user = await requireFirebaseUser()
+  const customersRef = collection(db, CUSTOMERS_COLLECTION)
+  const customersQuery = (await canReadAllCustomers())
+    ? customersRef
+    : query(customersRef, where("userId", "==", user.uid))
+  const snapshot = await getDocs(customersQuery)
 
-  if (!response.ok || !result.success || !result.data) {
-    throw new Error(
-      getApiErrorMessage(
-        response,
-        result,
-        "Không thể tải danh sách khách hàng."
+  return customerSchema.array().parse(
+    snapshot.docs.map((customerDoc) =>
+      normalizeCustomerDocument(
+        customerDoc.id,
+        customerDoc.data() as Record<string, unknown>
       )
     )
-  }
-
-  return customerSchema.array().parse(result.data.customers)
+  )
 }
 
 export async function createCustomer(
   formData: CustomerFormData
 ): Promise<Customer> {
+  const user = await requireFirebaseUser()
   const payload = customerFormSchema.parse(formData)
-  const response = await fetch("/api/admin/customers", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const customerRef = doc(collection(db, CUSTOMERS_COLLECTION))
+  const now = new Date().toISOString()
+  const customer = customerSchema.parse({
+    ...payload,
+    id: customerRef.id,
+    userId: user.uid,
+    createdAt: now,
+    updatedAt: now,
   })
-  const result = await readApiResult<{ customer: Customer }>(response)
 
-  if (!response.ok || !result.success || !result.data) {
-    throw new Error(
-      getApiErrorMessage(response, result, "Không thể thêm khách hàng.")
-    )
-  }
-
-  return customerSchema.parse(result.data.customer)
+  await setDoc(customerRef, customer)
+  return customer
 }
 
 export async function updateCustomer(customer: Customer): Promise<Customer> {
+  const user = await requireFirebaseUser()
+  const hasGlobalAccess = await canReadAllCustomers()
   const payload = customerFormSchema.parse(customer)
-  const response = await fetch(`/api/admin/customers/${customer.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const updatedCustomer = customerSchema.parse({
+    ...customer,
+    ...payload,
+    userId: customer.userId || (hasGlobalAccess ? "" : user.uid),
+    updatedAt: new Date().toISOString(),
   })
-  const result = await readApiResult<{ customer: Customer }>(response)
 
-  if (!response.ok || !result.success || !result.data) {
-    throw new Error(
-      getApiErrorMessage(response, result, "Không thể cập nhật khách hàng.")
-    )
-  }
+  await setDoc(
+    doc(db, CUSTOMERS_COLLECTION, customer.id),
+    updatedCustomer,
+    { merge: true }
+  )
 
-  return customerSchema.parse(result.data.customer)
+  return updatedCustomer
 }
 
 export async function deleteCustomer(customerId: string): Promise<void> {
-  const response = await fetch(`/api/admin/customers/${customerId}`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-  })
-  const result = await readApiResult(response)
-
-  if (!response.ok || !result.success) {
-    throw new Error(
-      getApiErrorMessage(response, result, "Không thể xóa khách hàng.")
-    )
-  }
+  await requireFirebaseUser()
+  await deleteDoc(doc(db, CUSTOMERS_COLLECTION, customerId))
 }

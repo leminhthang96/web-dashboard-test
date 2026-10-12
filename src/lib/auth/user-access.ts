@@ -1,5 +1,3 @@
-import { getAdminDb } from "@/lib/firebase/admin"
-
 import {
   ADMIN_ROLE_ID,
   isAdminIdentifier,
@@ -11,34 +9,29 @@ type UserAuthorization = {
 }
 
 export async function getUserAuthorization(
-  uid: string,
+  _uid: string,
   email?: string | null,
-  username?: string | null
+  username?: string | null,
+  customAttributes?: string | null
 ): Promise<UserAuthorization> {
   if (isAdminIdentifier(email) || isAdminIdentifier(username)) {
     return { roles: [ADMIN_ROLE_ID], isAdmin: true }
   }
 
   try {
-    const db = getAdminDb()
-    const [profileSnapshot, assignmentsSnapshot] = await Promise.all([
-      db.collection("users").doc(uid).get(),
-      db.collection("users_roles").where("uid", "==", uid).get(),
-    ])
-
-    const profile = profileSnapshot.data()
-    const roles = assignmentsSnapshot.docs
-      .map((document) => document.data().roleId)
-      .filter((roleId): roleId is string => typeof roleId === "string")
-
-    const hasAdminIdentifier = [profile?.email, profile?.username, profile?.name]
-      .some((value) => typeof value === "string" && isAdminIdentifier(value))
-    const isAdmin =
-      hasAdminIdentifier || roles.includes(ADMIN_ROLE_ID)
+    const claims = customAttributes
+      ? (JSON.parse(customAttributes) as Record<string, unknown>)
+      : {}
+    const claimRoles = Array.isArray(claims.roles)
+      ? claims.roles.filter((role): role is string => typeof role === "string")
+      : []
+    const roles = claimRoles.map((role) =>
+      role === "admin" ? ADMIN_ROLE_ID : role
+    )
+    const isAdmin = claims.admin === true || roles.includes(ADMIN_ROLE_ID)
 
     return { roles, isAdmin }
-  } catch (error) {
-    console.error("Failed to load user authorization from Firestore:", error)
+  } catch {
     return { roles: [], isAdmin: false }
   }
 }

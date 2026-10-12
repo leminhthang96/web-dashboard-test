@@ -30,10 +30,9 @@ export const userProfileSchema = z.object({
 export type UserProfile = z.infer<typeof userProfileSchema>
 
 /**
- * Combined User type — joined from Firebase Auth record + Firestore profile.
- * Fields prefixed with `auth*` come from `admin.auth.UserRecord`.
- * Fields like `name`, `gender`, `phone`, `status` come from the Firestore profile doc.
- * When a profile doc is missing the system falls back to Auth data.
+ * User data shown by the dashboard. Profile fields are read from Firestore.
+ * Firebase Authentication account metadata is optional because the client SDK
+ * cannot list other accounts.
  */
 export interface User {
   // From Firebase Auth
@@ -87,7 +86,7 @@ export const userFormSchema = z.object({
 
 export type UserFormValues = z.infer<typeof userFormSchema>
 
-// Payload for creating a user via API (Firebase Auth + Firestore profile)
+// Kept for the existing form contract. Creating another Auth account is disabled.
 export const createUserPayloadSchema = z.object({
   name: z.string().min(2, "Tên phải có ít nhất 2 ký tự"),
   email: z.string().email("Email không hợp lệ"),
@@ -99,7 +98,7 @@ export const createUserPayloadSchema = z.object({
 
 export type CreateUserPayload = z.infer<typeof createUserPayloadSchema>
 
-// Payload for updating a user via API
+// Payload for updating the signed-in user's Firestore profile.
 export const updateUserPayloadSchema = z.object({
   name: z.string().min(2).optional(),
   gender: genderEnum.optional(),

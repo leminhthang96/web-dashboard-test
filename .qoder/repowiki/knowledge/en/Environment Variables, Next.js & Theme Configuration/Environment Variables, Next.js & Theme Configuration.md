@@ -17,7 +17,7 @@ source_files:
 
 This repository uses a lightweight, file-based configuration approach centered on three layers:
 
-1. Runtime secrets via Next.js environment variables — All external service credentials are declared in .env.example and consumed through NEXT_PUBLIC_* (client-side) or server-only variables. The app wires Firebase client SDK keys (NEXT_PUBLIC_FIREBASE_*), NextAuth secret (AUTH_SECRET), Firebase Admin SDK credentials (FIREBASE_ADMIN_*), and Telegram bot tokens (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID). There is no runtime config loader; values are read directly from process.env at build/start time.
+1. Runtime secrets via Next.js environment variables — All external service credentials are declared in .env.example and consumed through NEXT_PUBLIC_* (client-side) or server-only variables. The app wires Firebase client SDK keys (NEXT_PUBLIC_FIREBASE_*), NextAuth secret (AUTH_SECRET), and Telegram bot tokens (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID). There is no runtime config loader; values are read directly from process.env at build/start time.
 
 2. Next.js application configuration — next.config.ts holds build-time settings: experimental package import optimization for lucide-react/@radix-ui/react-icons, Turbopack enablement, image remotePatterns for shadcn.com and Unsplash, security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy), and a /home to /dashboard redirect. No feature flags or dynamic toggles exist here.
 

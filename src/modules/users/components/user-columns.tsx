@@ -315,31 +315,41 @@ export function getUserColumns({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => onEditUser?.(user)}
-              >
-                Chỉnh sửa thông tin
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => onAssignRoles?.(user)}
-              >
-                Gán / bỏ role
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => onResetPassword?.(user)}
-              >
-                Đặt lại mật khẩu
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer text-red-600 focus:text-red-600"
-                onClick={() => onDeleteUser?.(user.uid)}
-              >
-                Xóa người dùng
-              </DropdownMenuItem>
+              {onEditUser ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => onEditUser(user)}
+                >
+                  Chỉnh sửa thông tin
+                </DropdownMenuItem>
+              ) : null}
+              {onAssignRoles ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => onAssignRoles(user)}
+                >
+                  Gán / bỏ role
+                </DropdownMenuItem>
+              ) : null}
+              {onResetPassword ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => onResetPassword(user)}
+                >
+                  Đặt lại mật khẩu
+                </DropdownMenuItem>
+              ) : null}
+              {onDeleteUser ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                    onClick={() => onDeleteUser(user.uid)}
+                  >
+                    Xóa người dùng
+                  </DropdownMenuItem>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         )

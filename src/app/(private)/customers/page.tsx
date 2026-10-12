@@ -112,8 +112,8 @@ export default function CustomersPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Khách hàng</h1>
         <p className="text-muted-foreground">
-          Quản lý tập trung khách hàng từ Firebase Console, landing page và
-          các website bên ngoài.
+          Danh sách khách hàng được đọc bằng tài khoản đang đăng nhập và tuân
+          theo quyền truy cập trong Firestore Rules.
         </p>
       </div>
 

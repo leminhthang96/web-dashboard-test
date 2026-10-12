@@ -1,7 +1,6 @@
-Each directory under `src/app/api/` is a Next.js Route Handler using file-system routing, exporting HTTP-method functions (`GET`, `POST`, `PATCH`, `DELETE`, `OPTIONS`). Five independent route groups exist:
+Each directory under `src/app/api/` is a Next.js Route Handler using file-system routing, exporting HTTP-method functions (`GET`, `POST`, `PATCH`, `DELETE`, `OPTIONS`). Four independent route groups exist:
 - `auth/[...nextauth]/route.ts` — re-exports the shared `@/auth` handlers for NextAuth session endpoints.
-- `admin/users/` — protected admin CRUD over Firebase Admin SDK; every handler starts with `getAdminApiErrorResponse(CORS_HEADERS)` to gate on admin auth before calling `getAdminAuth()` / `getAdminDb()` from `@/lib/firebase/admin`. User creation writes both an Auth user and a Firestore `users/{uid}` profile in a try/catch rollback pattern; deletion batches out `users_roles` then deletes the profile and Auth record.
 - `customers/route.ts` — unauthenticated POST persisted via `@/lib/firebase/client` (`addDoc`) and fires an outbound Telegram notification using `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` env vars.
 - `tasks/route.ts` — stateless mock GET returning seeded pseudo-random task data (no DB/auth).
 - `telegram/route.ts` — minimal placeholder webhook stub.
-Dependency direction is one-way: routes depend only on `@/lib/firebase/*`, `@/lib/auth/admin-api`, and `@/modules/users/services/types/user-types`; nothing inside this scope imports sibling route files. All responses are shaped as `{ success, message?, data?, errors? }` JSON via `NextResponse.json`.
+Dependency direction is one-way: routes depend only on shared libraries and feature types; nothing inside this scope imports sibling route files. All responses are shaped as `{ success, message?, data?, errors? }` JSON via `NextResponse.json`.

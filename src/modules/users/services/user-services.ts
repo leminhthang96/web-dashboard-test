@@ -2,71 +2,25 @@ import {
   collection,
   deleteDoc,
   doc,
-  serverTimestamp,
+  getDocs,
   setDoc,
   writeBatch,
 } from "firebase/firestore"
 
-import { db } from "@/lib/firebase/client"
+import { auth, db } from "@/lib/firebase/client"
 
 import { userMockData } from "./user-mock-data"
 import type {
   CreateUserPayload,
+  Gender,
   UpdateUserPayload,
   User,
+  UserStatus,
 } from "./types/user-types"
 
 const USERS_COLLECTION = "users"
-
-// =====================================================
-// Reads — Firebase Auth is the source of truth, the
-// API joins the records with the Firestore profile.
-// =====================================================
-
-export async function getUsers(): Promise<User[]> {
-  try {
-    const res = await fetch("/api/admin/users", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      // Always revalidate; Auth data can change from other admin tools.
-      cache: "no-store",
-    })
-
-    if (!res.ok) {
-      console.warn(
-        `[getUsers] /api/admin/users returned ${res.status} — falling back to mock data`
-      )
-      return userMockData
-    }
-
-    const json = (await res.json()) as {
-      success: boolean
-      data?: { users: User[] }
-      message?: string
-    }
-
-    if (!json.success || !json.data) {
-      console.warn(
-        `[getUsers] API returned no users — falling back to mock data:`,
-        json.message
-      )
-      return userMockData
-    }
-
-    return json.data.users
-  } catch (error) {
-    console.warn(
-      `[getUsers] Failed to call /api/admin/users — falling back to mock data`,
-      error
-    )
-    return userMockData
-  }
-}
-
-// =====================================================
-// Auth mutations — handled server-side via API routes
-// (Firebase Admin SDK creates/deletes Auth accounts).
-// =====================================================
+const AUTH_MANAGEMENT_UNAVAILABLE =
+  "Quản lý tài khoản Firebase Authentication từ dashboard đã được tắt."
 
 interface ApiResult<T = unknown> {
   success: boolean
@@ -75,54 +29,126 @@ interface ApiResult<T = unknown> {
   errors?: Record<string, string[]>
 }
 
-export async function createUserViaApi(
-  payload: CreateUserPayload
-): Promise<ApiResult<{ uid: string }>> {
-  try {
-    const res = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    return (await res.json()) as ApiResult<{ uid: string }>
-  } catch (error) {
-    console.error("Failed to create user via API:", error)
-    return { success: false, message: "Không thể kết nối đến máy chủ" }
+function readString(data: Record<string, unknown>, key: string): string {
+  const value = data[key]
+  return typeof value === "string" ? value : ""
+}
+
+function normalizeDate(value: unknown): string | null {
+  if (typeof value === "string") {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : date.toISOString()
   }
+
+  if (value instanceof Date) return value.toISOString()
+
+  if (value && typeof value === "object" && "toDate" in value) {
+    const dateLike = value as { toDate?: () => Date }
+    if (typeof dateLike.toDate === "function") {
+      return dateLike.toDate().toISOString()
+    }
+  }
+
+  return null
+}
+
+function normalizeGender(value: unknown): Gender {
+  return value === "male" || value === "female" || value === "other"
+    ? value
+    : "other"
+}
+
+function normalizeStatus(value: unknown): UserStatus {
+  return value === "active" || value === "pending" || value === "disabled"
+    ? value
+    : "active"
+}
+
+function normalizeUserProfile(
+  uid: string,
+  data: Record<string, unknown>
+): User {
+  const email = readString(data, "email")
+  const name = readString(data, "name") || email.split("@")[0] || uid
+  const status = normalizeStatus(data.status)
+
+  return {
+    uid,
+    email,
+    name,
+    photoURL: readString(data, "photoURL") || null,
+    disabled: status === "disabled",
+    emailVerified: false,
+    creationTime: normalizeDate(data.createdAt),
+    lastSignInTime: null,
+    providers: [],
+    gender: normalizeGender(data.gender),
+    phone: readString(data, "phone"),
+    status,
+    address: readString(data, "address"),
+    profileCreatedAt: normalizeDate(data.createdAt),
+    profileUpdatedAt: normalizeDate(data.updatedAt),
+  }
+}
+
+export async function getUsers(): Promise<User[]> {
+  try {
+    await auth.authStateReady()
+    const snapshot = await getDocs(collection(db, USERS_COLLECTION))
+
+    return snapshot.docs.map((profileDoc) =>
+      normalizeUserProfile(
+        profileDoc.id,
+        profileDoc.data() as Record<string, unknown>
+      )
+    )
+  } catch (error) {
+    console.warn(
+      "[getUsers] Không thể đọc hồ sơ Firestore; đang dùng dữ liệu mẫu.",
+      error
+    )
+    return userMockData
+  }
+}
+
+export async function createUserViaApi(
+  _payload: CreateUserPayload
+): Promise<ApiResult<{ uid: string }>> {
+  return { success: false, message: AUTH_MANAGEMENT_UNAVAILABLE }
 }
 
 export async function updateUserViaApi(
   uid: string,
   payload: UpdateUserPayload
 ): Promise<ApiResult> {
+  await auth.authStateReady()
+
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    return { success: false, message: AUTH_MANAGEMENT_UNAVAILABLE }
+  }
+
+  const profilePayload = {
+    ...(payload.name ? { name: payload.name } : {}),
+    ...(payload.gender ? { gender: payload.gender } : {}),
+    ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+    ...(payload.status ? { status: payload.status } : {}),
+    updatedAt: new Date().toISOString(),
+  }
+
   try {
-    const res = await fetch(`/api/admin/users/${uid}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    await setDoc(doc(db, USERS_COLLECTION, uid), profilePayload, {
+      merge: true,
     })
-    return (await res.json()) as ApiResult
+    return { success: true }
   } catch (error) {
-    console.error("Failed to update user via API:", error)
-    return { success: false, message: "Không thể kết nối đến máy chủ" }
+    console.error("Không thể cập nhật hồ sơ người dùng:", error)
+    return { success: false, message: "Không thể cập nhật hồ sơ người dùng." }
   }
 }
 
-export async function deleteUserViaApi(uid: string): Promise<ApiResult> {
-  try {
-    const res = await fetch(`/api/admin/users/${uid}`, {
-      method: "DELETE",
-    })
-    return (await res.json()) as ApiResult
-  } catch (error) {
-    console.error("Failed to delete user via API:", error)
-    return { success: false, message: "Không thể kết nối đến máy chủ" }
-  }
+export async function deleteUserViaApi(_uid: string): Promise<ApiResult> {
+  return { success: false, message: AUTH_MANAGEMENT_UNAVAILABLE }
 }
-
-// =====================================================
-// Local-state helpers
-// =====================================================
 
 export function generateUserAvatar(name: string) {
   const names = name.split(" ").filter(Boolean)
@@ -134,16 +160,6 @@ export function generateUserAvatar(name: string) {
   return name.substring(0, 2).toUpperCase()
 }
 
-// =====================================================
-// Profile seeder (writes only the Firestore profile,
-// not the Auth user). Useful when seeding mock data.
-// =====================================================
-
-/**
- * Write a user profile to Firestore without touching Firebase Auth.
- * Use this only for development / seeding — the admin API route is
- * the correct path for real user creation.
- */
 export async function upsertUserProfileDirect(user: User): Promise<void> {
   await setDoc(
     doc(db, USERS_COLLECTION, user.uid),
