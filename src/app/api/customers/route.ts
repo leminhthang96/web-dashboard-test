@@ -88,16 +88,10 @@ export async function POST(request: NextRequest) {
   try {
     const { fullName, email, phoneNumber, serviceName } = parsed.data
     const customer = {
-      name: fullName,
       fullName,
       email,
-      phone: phoneNumber,
       phoneNumber,
-      category: serviceName,
       serviceName,
-      address: "",
-      gender: null,
-      notes: "",
       userId: "",
       source: "landing-page",
       createdAt: serverTimestamp(),

@@ -4,6 +4,7 @@ import {
   doc,
   getDocs,
   query,
+  serverTimestamp,
   setDoc,
   where,
 } from "firebase/firestore"
@@ -75,9 +76,15 @@ export async function createCustomer(
     userId: user.uid,
     createdAt: now,
     updatedAt: now,
+    dataWarnings: [],
   })
 
-  await setDoc(customerRef, customer)
+  await setDoc(customerRef, {
+    ...payload,
+    userId: user.uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
   return customer
 }
 
@@ -92,9 +99,18 @@ export async function updateCustomer(customer: Customer): Promise<Customer> {
     updatedAt: new Date().toISOString(),
   })
 
+  const writePayload: Record<string, unknown> = {
+    ...payload,
+    updatedAt: serverTimestamp(),
+  }
+
+  if (customer.userId || !hasGlobalAccess) {
+    writePayload.userId = customer.userId || user.uid
+  }
+
   await setDoc(
     doc(db, CUSTOMERS_COLLECTION, customer.id),
-    updatedCustomer,
+    writePayload,
     { merge: true }
   )
 

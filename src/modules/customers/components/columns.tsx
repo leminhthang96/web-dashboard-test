@@ -5,11 +5,6 @@ import { AlertTriangle } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  customerCategoryOptions,
-  customerGenderOptions,
-  getCustomerCategoryLabel,
-} from "@/modules/customers/services/customer-mock-data"
 import type { Customer } from "@/modules/customers/services/types/customer-types"
 import { DataTableColumnHeader } from "./data-table-column-header"
 import { DataTableRowActions } from "./data-table-row-actions"
@@ -47,16 +42,16 @@ export function getCustomerColumns({
       enableHiding: false,
     },
     {
-      accessorKey: "name",
+      accessorKey: "fullName",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Tên" />
+        <DataTableColumnHeader column={column} title="Họ và tên" />
       ),
       cell: ({ row }) => {
         const customer = row.original
 
         return (
-          <div className="flex min-w-40 items-center gap-2">
-            <span className="font-medium">{customer.name}</span>
+          <div className="flex min-w-48 items-center gap-2">
+            <span className="font-medium">{customer.fullName}</span>
             {customer.dataWarnings.length ? (
               <span
                 className="text-amber-600"
@@ -76,33 +71,6 @@ export function getCustomerColumns({
       enableHiding: false,
     },
     {
-      accessorKey: "category",
-      header: "Danh mục",
-      cell: ({ row }) => {
-        const value = row.getValue<Customer["category"]>("category")
-        const category = customerCategoryOptions.find(
-          (option) => option.value === value
-        )
-        return (
-          <Badge variant="outline">
-            {category?.label ?? getCustomerCategoryLabel(value)}
-          </Badge>
-        )
-      },
-      filterFn: "equalsString",
-      enableSorting: false,
-    },
-    {
-      accessorKey: "address",
-      header: "Địa chỉ",
-      cell: ({ row }) => (
-        <span className="block max-w-52 truncate">
-          {row.getValue("address") || "—"}
-        </span>
-      ),
-      enableSorting: false,
-    },
-    {
       accessorKey: "email",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Email" />
@@ -112,41 +80,26 @@ export function getCustomerColumns({
           href={`mailto:${row.getValue<string>("email")}`}
           className="text-primary hover:underline"
         >
-          {row.getValue("email")}
+          {row.getValue("email") || "—"}
         </a>
       ),
       sortingFn: "alphanumeric",
     },
     {
-      accessorKey: "phone",
-      header: "Điện thoại",
-      cell: ({ row }) => row.getValue("phone") || "—",
+      accessorKey: "phoneNumber",
+      header: "Số điện thoại",
+      cell: ({ row }) => row.getValue("phoneNumber") || "—",
       enableSorting: false,
     },
     {
-      accessorKey: "gender",
-      header: "Giới tính",
-      cell: ({ row }) => {
-        const value = row.getValue<Customer["gender"]>("gender")
-        const gender = customerGenderOptions.find(
-          (option) => option.value === value
-        )
-        return gender?.label ?? "—"
-      },
+      accessorKey: "serviceName",
+      header: "Dịch vụ",
+      cell: ({ row }) => (
+        <Badge variant="outline">
+          {row.getValue("serviceName") || "Chưa xác định"}
+        </Badge>
+      ),
       filterFn: "equalsString",
-      enableSorting: false,
-    },
-    {
-      accessorKey: "notes",
-      header: "Ghi chú",
-      cell: ({ row }) => {
-        const notes = row.getValue<string>("notes")
-        return (
-          <span className="block max-w-64 truncate" title={notes}>
-            {notes || "—"}
-          </span>
-        )
-      },
       enableSorting: false,
     },
     {

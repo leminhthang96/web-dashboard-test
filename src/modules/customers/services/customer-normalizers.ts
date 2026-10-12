@@ -18,34 +18,6 @@ function readString(
   return ""
 }
 
-function normalizeCategory(value: unknown): string {
-  if (typeof value !== "string" || !value.trim()) return "other"
-
-  const normalized = value.trim().toLocaleLowerCase()
-  const aliases: Record<string, string> = {
-    "giáo dục": "education",
-    education: "education",
-    "kinh doanh": "sales",
-    sales: "sales",
-    marketing: "marketing",
-    "công nhân": "worker",
-    worker: "worker",
-    khác: "other",
-    other: "other",
-  }
-
-  return aliases[normalized] ?? normalized
-}
-
-function normalizeGender(value: unknown): Customer["gender"] {
-  if (typeof value !== "string") return null
-
-  const normalized = value.trim().toLocaleLowerCase()
-  if (["male", "nam", "m"].includes(normalized)) return "male"
-  if (["female", "nữ", "nu", "f"].includes(normalized)) return "female"
-  return null
-}
-
 function normalizeDate(value: unknown, fallback: string): string {
   if (typeof value === "string") {
     const date = new Date(value)
@@ -83,33 +55,25 @@ export function normalizeCustomerDocument(
 ): Customer {
   const warnings: string[] = []
   const now = new Date().toISOString()
-  const rawName = readString(rawData, "name", "fullName")
-  const rawEmail = readString(rawData, "email")
-  const rawCategory = rawData.category ?? rawData.serviceName
-  const rawGender = rawData.gender
+  const fullName = readString(rawData, "fullName", "name")
+  const email = readString(rawData, "email")
+  const phoneNumber = readString(rawData, "phoneNumber", "phone")
+  const serviceName = readString(rawData, "serviceName", "category")
   const userId = readString(rawData, "userId")
 
-  if (!rawName) warnings.push("Thiếu tên khách hàng")
-  if (!rawEmail) warnings.push("Thiếu email")
-  if (!userId) warnings.push("Chưa gán userId")
-  if (typeof rawCategory !== "string" || !rawCategory.trim()) {
-    warnings.push("Thiếu danh mục; đã chuyển thành other")
-  }
-  if (rawGender && !normalizeGender(rawGender)) {
-    warnings.push("Giới tính không hợp lệ; đã để trống")
-  }
+  if (!fullName) warnings.push("Thiếu họ và tên")
+  if (!email) warnings.push("Thiếu email")
+  if (!phoneNumber) warnings.push("Thiếu số điện thoại")
+  if (!serviceName) warnings.push("Thiếu tên dịch vụ")
 
   const createdAt = normalizeDate(rawData.createdAt, now)
 
   return {
     id: documentId,
-    name: rawName || `Khách hàng ${documentId.slice(0, 8)}`,
-    category: normalizeCategory(rawCategory),
-    address: readString(rawData, "address"),
-    email: rawEmail,
-    phone: readString(rawData, "phone", "phoneNumber"),
-    gender: normalizeGender(rawGender),
-    notes: readString(rawData, "notes"),
+    fullName: fullName || `Khách hàng ${documentId.slice(0, 8)}`,
+    email,
+    phoneNumber,
+    serviceName: serviceName || "Chưa xác định",
     userId,
     createdAt,
     updatedAt: normalizeDate(rawData.updatedAt, createdAt),

@@ -1,44 +1,38 @@
 import { z } from "zod"
 
-export const customerGenders = ["male", "female"] as const
-
-export const customerCategorySchema = z
-  .string()
-  .trim()
-  .min(1, "Danh mục là bắt buộc")
-export const customerGenderSchema = z.enum(customerGenders)
-
 export const customerFormSchema = z.object({
-  name: z.string().trim().min(1, "Tên khách hàng là bắt buộc"),
-  category: customerCategorySchema,
-  address: z.string().trim(),
-  email: z.email("Email không hợp lệ"),
-  phone: z.string().trim(),
-  gender: customerGenderSchema.nullable(),
-  notes: z
+  fullName: z
     .string()
     .trim()
-    .max(5000, "Ghi chú không được vượt quá 5.000 ký tự"),
+    .min(1, "Họ và tên là bắt buộc")
+    .max(120, "Họ và tên không được vượt quá 120 ký tự"),
+  email: z
+    .string()
+    .trim()
+    .max(254, "Email không được vượt quá 254 ký tự")
+    .pipe(z.email("Email không hợp lệ")),
+  phoneNumber: z
+    .string()
+    .trim()
+    .min(1, "Số điện thoại là bắt buộc")
+    .max(30, "Số điện thoại không được vượt quá 30 ký tự")
+    .regex(/^[+()\d\s.-]+$/, "Số điện thoại không hợp lệ"),
+  serviceName: z
+    .string()
+    .trim()
+    .min(1, "Tên dịch vụ là bắt buộc")
+    .max(120, "Tên dịch vụ không được vượt quá 120 ký tự"),
 })
 
-// Read models are deliberately more tolerant than form input so admin users
-// can see and repair records created by external sources.
-export const customerSchema = z.object({
+// Model đọc có thêm metadata để quản lý document, nhưng bốn trường nghiệp vụ
+// luôn giữ đúng tên đang được sử dụng trong collection customers.
+export const customerSchema = customerFormSchema.extend({
   id: z.string(),
-  name: z.string(),
-  category: z.string(),
-  address: z.string(),
-  email: z.string(),
-  phone: z.string(),
-  gender: customerGenderSchema.nullable(),
-  notes: z.string(),
   userId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   dataWarnings: z.array(z.string()),
 })
 
-export type CustomerCategory = z.infer<typeof customerCategorySchema>
-export type CustomerGender = z.infer<typeof customerGenderSchema>
 export type CustomerFormData = z.infer<typeof customerFormSchema>
 export type Customer = z.infer<typeof customerSchema>

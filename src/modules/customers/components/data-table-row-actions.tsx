@@ -57,13 +57,10 @@ export function DataTableRowActions<TData>({
 
   const customer = parsed.data
   const formValues: CustomerFormData = {
-    name: customer.name,
-    category: customer.category,
-    address: customer.address,
+    fullName: customer.fullName,
     email: customer.email,
-    phone: customer.phone,
-    gender: customer.gender,
-    notes: customer.notes,
+    phoneNumber: customer.phoneNumber,
+    serviceName: customer.serviceName,
   }
 
   async function handleUpdate(data: CustomerFormData) {
@@ -140,8 +137,8 @@ export function DataTableRowActions<TData>({
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa khách hàng?</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc muốn xóa khách hàng “{customer.name}”? Hành động này
-              không thể hoàn tác.
+              Bạn có chắc muốn xóa khách hàng “{customer.fullName}”? Hành
+              động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError ? (

@@ -12,10 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  customerCategoryOptions,
-  getCustomerCategoryLabel,
-} from "@/modules/customers/services/customer-mock-data"
 import type {
   Customer,
   CustomerFormData,
@@ -33,24 +29,17 @@ export function DataTableToolbar<TData>({
   onAddCustomer,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0
-  const categoryFilter = table.getColumn("category")?.getFilterValue() as
+  const serviceFilter = table.getColumn("serviceName")?.getFilterValue() as
     | string
     | undefined
-  const categoryLabels = new Map<string, string>(
-    customerCategoryOptions.map((option) => [option.value, option.label])
-  )
-
-  table.getCoreRowModel().rows.forEach((row) => {
-    const category = (row.original as Customer).category
-    if (!categoryLabels.has(category)) {
-      categoryLabels.set(category, getCustomerCategoryLabel(category))
-    }
-  })
-
-  const availableCategories = Array.from(categoryLabels, ([value, label]) => ({
-    value,
-    label,
-  })).sort((left, right) => left.label.localeCompare(right.label, "vi"))
+  const availableServices = Array.from(
+    new Set(
+      table
+        .getCoreRowModel()
+        .rows.map((row) => (row.original as Customer).serviceName)
+        .filter(Boolean)
+    )
+  ).sort((left, right) => left.localeCompare(right, "vi"))
 
   function handleExportCsv() {
     const customers = table
@@ -58,27 +47,12 @@ export function DataTableToolbar<TData>({
       .rows.map((row) => row.original as Customer)
     const escapeCsv = (value: unknown) =>
       `"${String(value ?? "").replace(/"/g, '""')}"`
-    const header = [
-      "Tên",
-      "Danh mục",
-      "Địa chỉ",
-      "Email",
-      "Điện thoại",
-      "Giới tính",
-      "Ghi chú",
-    ]
+    const header = ["Họ và tên", "Email", "Số điện thoại", "Dịch vụ"]
     const rows = customers.map((customer) => [
-      customer.name,
-      categoryLabels.get(customer.category) ?? customer.category,
-      customer.address,
+      customer.fullName,
       customer.email,
-      customer.phone,
-      customer.gender === "male"
-        ? "Nam"
-        : customer.gender === "female"
-          ? "Nữ"
-          : "",
-      customer.notes,
+      customer.phoneNumber,
+      customer.serviceName,
     ])
     const csv = [header, ...rows]
       .map((row) => row.map(escapeCsv).join(","))
@@ -102,29 +76,31 @@ export function DataTableToolbar<TData>({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Input
           placeholder="Tìm theo tên khách hàng..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          value={
+            (table.getColumn("fullName")?.getFilterValue() as string) ?? ""
+          }
           onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
+            table.getColumn("fullName")?.setFilterValue(event.target.value)
           }
           className="min-w-0 flex-1 sm:max-w-72"
         />
 
         <Select
-          value={categoryFilter ?? "all"}
+          value={serviceFilter ?? "all"}
           onValueChange={(value) =>
             table
-              .getColumn("category")
+              .getColumn("serviceName")
               ?.setFilterValue(value === "all" ? undefined : value)
           }
         >
-          <SelectTrigger className="w-40 shrink-0 sm:w-44">
-            <SelectValue placeholder="Danh mục" />
+          <SelectTrigger className="w-40 shrink-0 sm:w-48">
+            <SelectValue placeholder="Dịch vụ" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả danh mục</SelectItem>
-            {availableCategories.map((category) => (
-              <SelectItem key={category.value} value={category.value}>
-                {category.label}
+            <SelectItem value="all">Tất cả dịch vụ</SelectItem>
+            {availableServices.map((serviceName) => (
+              <SelectItem key={serviceName} value={serviceName}>
+                {serviceName}
               </SelectItem>
             ))}
           </SelectContent>

@@ -45,7 +45,7 @@ export function AddCustomerModal({
         <DialogHeader>
           <DialogTitle>Thêm khách hàng</DialogTitle>
           <DialogDescription>
-            Các trường tên, danh mục và email là bắt buộc.
+            Nhập đầy đủ họ tên, email, số điện thoại và dịch vụ.
           </DialogDescription>
         </DialogHeader>
         <CustomerForm

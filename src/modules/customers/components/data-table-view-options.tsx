@@ -14,13 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const columnLabels: Record<string, string> = {
-  name: "Tên",
-  category: "Danh mục",
-  address: "Địa chỉ",
+  fullName: "Họ và tên",
   email: "Email",
-  phone: "Điện thoại",
-  gender: "Giới tính",
-  notes: "Ghi chú",
+  phoneNumber: "Số điện thoại",
+  serviceName: "Dịch vụ",
 }
 
 interface DataTableViewOptionsProps<TData> {

@@ -12,7 +12,9 @@ service cloud.firestore {
       // Read: user must be authenticated and own the document (RLS).
       // Admins can read all customer records.
       allow read: if request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid));
 
       // Create: authenticated users must set userId to their own UID.
       // Public (unauthenticated) creates are allowed for the lead capture form
@@ -28,15 +30,18 @@ service cloud.firestore {
       // The userId field cannot be changed to a different user.
       // Admins can update any customer record.
       allow update: if request.auth != null
-        && ((resource.data.userId == request.auth.uid
-          && request.resource.data.userId == request.auth.uid)
-          || isAdmin())
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid))
         && hasRequiredCustomerFields();
 
       // Delete: user must be authenticated and own the document.
       // Admins can delete any customer record.
       allow delete: if request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid));
     }
 
     // ─── Users Collection ─────────────────────────────────────────
@@ -72,18 +77,31 @@ service cloud.firestore {
     }
 
     function hasRequiredCustomerFields() {
-      return request.resource.data.keys().hasAll([
-          'name',
-          'category',
-          'email',
-          'userId'
-        ])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.category is string
-        && request.resource.data.category.size() > 0
-        && request.resource.data.email is string
-        && request.resource.data.email.size() > 0;
+      return (request.resource.data.keys().hasAll([
+            'fullName',
+            'email',
+            'phoneNumber',
+            'serviceName'
+          ])
+          && request.resource.data.fullName is string
+          && request.resource.data.fullName.size() > 0
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.phoneNumber is string
+          && request.resource.data.phoneNumber.size() > 0
+          && request.resource.data.serviceName is string
+          && request.resource.data.serviceName.size() > 0)
+        || (request.resource.data.keys().hasAll([
+            'name',
+            'category',
+            'email'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.category is string
+          && request.resource.data.category.size() > 0
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0);
     }
   }
 }
