@@ -1,21 +1,19 @@
 import { FirebaseError } from "firebase/app"
-import { getApps, initializeApp } from "firebase/app"
 import {
   addDoc,
   collection,
-  getFirestore,
   serverTimestamp,
-} from "firebase/firestore/lite"
+} from "firebase/firestore"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+
+import { db } from "@/lib/firebase/client"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 }
-
-const FIREBASE_APP_NAME = "landing-page-customer-api"
 
 const landingPageCustomerSchema = z.object({
   fullName: z
@@ -40,25 +38,6 @@ const landingPageCustomerSchema = z.object({
     .min(1, "Tên dịch vụ là bắt buộc")
     .max(120, "Tên dịch vụ không được vượt quá 120 ký tự"),
 })
-
-function getPublicFirestore() {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-
-  if (!apiKey || !projectId) {
-    throw new Error(
-      "Thiếu NEXT_PUBLIC_FIREBASE_API_KEY hoặc NEXT_PUBLIC_FIREBASE_PROJECT_ID"
-    )
-  }
-
-  const existingApp = getApps().find((app) => app.name === FIREBASE_APP_NAME)
-  const app =
-    existingApp ??
-    initializeApp({ apiKey, projectId, authDomain }, FIREBASE_APP_NAME)
-
-  return getFirestore(app)
-}
 
 async function readRequestBody(request: NextRequest): Promise<unknown> {
   const contentType = request.headers.get("content-type") ?? ""
@@ -125,7 +104,7 @@ export async function POST(request: NextRequest) {
       updatedAt: serverTimestamp(),
     }
     const customerRef = await addDoc(
-      collection(getPublicFirestore(), "customers"),
+      collection(db, "customers"),
       customer
     )
 
