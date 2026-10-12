@@ -26,8 +26,12 @@ export const customerFormSchema = z.object({
 
 // Model đọc có thêm metadata để quản lý document, nhưng bốn trường nghiệp vụ
 // luôn giữ đúng tên đang được sử dụng trong collection customers.
-export const customerSchema = customerFormSchema.extend({
+export const customerSchema = z.object({
   id: z.string(),
+  fullName: z.string(),
+  email: z.string(),
+  phoneNumber: z.string(),
+  serviceName: z.string(),
   userId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
