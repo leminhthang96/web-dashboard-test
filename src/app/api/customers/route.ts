@@ -53,6 +53,52 @@ async function readRequestBody(request: NextRequest): Promise<unknown> {
   return request.json()
 }
 
+async function sendTelegramCustomerNotification(
+  customer: z.infer<typeof landingPageCustomerSchema>
+) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  const chatId = process.env.TELEGRAM_CHAT_ID
+
+  if (!botToken || !chatId) {
+    throw new Error("Thiếu TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID")
+  }
+
+  const submittedAt = new Date().toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  })
+  const message = [
+    "🔔 KHÁCH HÀNG MỚI TỪ LANDING PAGE",
+    "",
+    `👤 Họ và tên: ${customer.fullName}`,
+    `📧 Email: ${customer.email}`,
+    `📞 Số điện thoại: ${customer.phoneNumber}`,
+    `🛠️ Dịch vụ: ${customer.serviceName}`,
+    `🕒 Thời gian: ${submittedAt}`,
+  ].join("\n")
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        disable_web_page_preview: true,
+      }),
+      signal: AbortSignal.timeout(10000),
+    }
+  )
+  const result = (await response.json()) as {
+    ok?: boolean
+    description?: string
+  }
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.description ?? "Telegram từ chối gửi tin nhắn")
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -102,11 +148,33 @@ export async function POST(request: NextRequest) {
       customer
     )
 
+    try {
+      await sendTelegramCustomerNotification(parsed.data)
+    } catch (telegramError) {
+      console.error("Không thể gửi thông báo khách hàng tới Telegram", {
+        customerId: customerRef.id,
+        error:
+          telegramError instanceof Error
+            ? telegramError.message
+            : "Lỗi không xác định",
+      })
+
+      return NextResponse.json(
+        {
+          success: true,
+          message:
+            "Đã lưu khách hàng nhưng chưa gửi được thông báo Telegram",
+          data: { id: customerRef.id, telegramSent: false },
+        },
+        { status: 201, headers: CORS_HEADERS }
+      )
+    }
+
     return NextResponse.json(
       {
         success: true,
-        message: "Đã tiếp nhận thông tin khách hàng",
-        data: { id: customerRef.id },
+        message: "Đã lưu khách hàng và gửi thông báo Telegram",
+        data: { id: customerRef.id, telegramSent: true },
       },
       { status: 201, headers: CORS_HEADERS }
     )
