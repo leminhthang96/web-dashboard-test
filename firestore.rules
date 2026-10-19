@@ -54,16 +54,19 @@ service cloud.firestore {
     }
 
     // ─── Tasks Collection ─────────────────────────────────────────
-    // Authenticated users can read tasks. Only the creator can update/delete.
+    // A task is visible only to its reporter. Only its creator can modify it.
     match /tasks/{taskId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null
+        && resource.data.reporter == request.auth.uid;
 
       allow create: if request.auth != null
-        && request.resource.data.createdBy == request.auth.uid;
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.reporter == request.auth.uid;
 
       allow update: if request.auth != null
         && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == resource.data.createdBy;
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.reporter == resource.data.reporter;
 
       allow delete: if request.auth != null
         && resource.data.createdBy == request.auth.uid;

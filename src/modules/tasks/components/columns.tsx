@@ -169,6 +169,17 @@ export function getTaskColumns({
       },
     },
     {
+      accessorKey: "reporter",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Reporter" />
+      ),
+      cell: ({ row }) => (
+        <div className="max-w-[180px] truncate font-mono text-xs">
+          {row.getValue("reporter") || "—"}
+        </div>
+      ),
+    },
+    {
       id: "actions",
       cell: ({ row }) => (
         <DataTableRowActions

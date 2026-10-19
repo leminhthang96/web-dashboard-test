@@ -3,8 +3,10 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore"
 
@@ -29,8 +31,13 @@ export async function getCurrentTaskUserId(): Promise<string> {
 }
 
 export async function getTasks(): Promise<Task[]> {
-  await requireFirebaseUser()
-  const snapshot = await getDocs(collection(db, TASKS_COLLECTION))
+  const user = await requireFirebaseUser()
+  const snapshot = await getDocs(
+    query(
+      collection(db, TASKS_COLLECTION),
+      where("reporter", "==", user.uid)
+    )
+  )
 
   const result = snapshot.docs.map((document) => {
     const data = document.data() as Task
@@ -51,7 +58,7 @@ export async function seedTasksWithClient(): Promise<Task[]> {
   taskMockData.forEach((task) => {
     batch.set(
       doc(db, TASKS_COLLECTION, task.id),
-      { ...task, createdBy: user.uid },
+      { ...task, createdBy: user.uid, reporter: user.uid },
       { merge: true }
     )
   })
@@ -62,7 +69,11 @@ export async function seedTasksWithClient(): Promise<Task[]> {
 
 export async function createTask(task: Task): Promise<Task> {
   const user = await requireFirebaseUser()
-  const ownedTask = { ...task, createdBy: user.uid }
+  const ownedTask = {
+    ...task,
+    createdBy: user.uid,
+    reporter: user.uid,
+  }
 
   await setDoc(doc(db, TASKS_COLLECTION, task.id), ownedTask)
 
