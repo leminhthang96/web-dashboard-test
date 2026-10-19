@@ -8,13 +8,28 @@ import {
   writeBatch,
 } from "firebase/firestore"
 
-import { db } from "@/lib/firebase/client"
+import { auth, db } from "@/lib/firebase/client"
 import { taskMockData } from "./task-mock-data"
 import type { Task } from "./types/task-types"
 
 const TASKS_COLLECTION = "tasks"
 
+async function requireFirebaseUser() {
+  await auth.authStateReady()
+
+  if (!auth.currentUser) {
+    throw new Error("Bạn cần đăng nhập để quản lý công việc.")
+  }
+
+  return auth.currentUser
+}
+
+export async function getCurrentTaskUserId(): Promise<string> {
+  return (await requireFirebaseUser()).uid
+}
+
 export async function getTasks(): Promise<Task[]> {
+  await requireFirebaseUser()
   const snapshot = await getDocs(collection(db, TASKS_COLLECTION))
 
   const result = snapshot.docs.map((document) => {
@@ -30,10 +45,15 @@ export async function getTasks(): Promise<Task[]> {
 }
 
 export async function seedTasksWithClient(): Promise<Task[]> {
+  const user = await requireFirebaseUser()
   const batch = writeBatch(db)
 
   taskMockData.forEach((task) => {
-    batch.set(doc(db, TASKS_COLLECTION, task.id), task, { merge: true })
+    batch.set(
+      doc(db, TASKS_COLLECTION, task.id),
+      { ...task, createdBy: user.uid },
+      { merge: true }
+    )
   })
 
   await batch.commit()
@@ -41,18 +61,29 @@ export async function seedTasksWithClient(): Promise<Task[]> {
 }
 
 export async function createTask(task: Task): Promise<Task> {
-  await setDoc(doc(db, TASKS_COLLECTION, task.id), task)
+  const user = await requireFirebaseUser()
+  const ownedTask = { ...task, createdBy: user.uid }
 
-  return task
+  await setDoc(doc(db, TASKS_COLLECTION, task.id), ownedTask)
+
+  return ownedTask
 }
 
 export async function updateTask(task: Task): Promise<Task> {
-  await updateDoc(doc(db, TASKS_COLLECTION, task.id), task)
+  const user = await requireFirebaseUser()
 
-  return task
+  if (task.createdBy !== user.uid) {
+    throw new Error("Bạn chỉ có thể sửa công việc do mình tạo.")
+  }
+
+  const ownedTask = { ...task, createdBy: user.uid }
+  await updateDoc(doc(db, TASKS_COLLECTION, task.id), ownedTask)
+
+  return ownedTask
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
+  await requireFirebaseUser()
   await deleteDoc(doc(db, TASKS_COLLECTION, taskId))
 }
 

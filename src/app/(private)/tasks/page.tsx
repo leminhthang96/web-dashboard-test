@@ -15,6 +15,7 @@ import { DataTable } from "@/modules/tasks/components/data-table"
 import {
   createTask,
   deleteTask,
+  getCurrentTaskUserId,
   getTasks,
   getTaskStats,
   seedTasksWithClient,
@@ -24,6 +25,7 @@ import type { Task } from "@/modules/tasks/services/types/task-types"
 
 export default function TaskPage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSeedingTasks, setIsSeedingTasks] = useState(false)
 
@@ -35,7 +37,11 @@ export default function TaskPage() {
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        await refreshTasks()
+        const [taskUserId] = await Promise.all([
+          getCurrentTaskUserId(),
+          refreshTasks(),
+        ])
+        setCurrentUserId(taskUserId)
       } catch (error) {
         console.error("Failed to load tasks:", error)
       } finally {
@@ -90,11 +96,17 @@ export default function TaskPage() {
   const taskColumns = useMemo(
     () =>
       getTaskColumns({
+        currentUserId,
         onUpdateTask: handleUpdateTask,
         onDeleteTask: handleDeleteTask,
         onDuplicateTask: handleDuplicateTask,
       }),
-    [handleDeleteTask, handleDuplicateTask, handleUpdateTask]
+    [
+      currentUserId,
+      handleDeleteTask,
+      handleDuplicateTask,
+      handleUpdateTask,
+    ]
   )
 
   const stats = getTaskStats(tasks)

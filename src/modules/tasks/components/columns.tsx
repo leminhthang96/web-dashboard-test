@@ -16,12 +16,14 @@ import { DataTableColumnHeader } from "./data-table-column-header"
 import { DataTableRowActions } from "./data-table-row-actions"
 
 interface TaskColumnActions {
+  currentUserId?: string | null
   onUpdateTask?: (task: Task) => void | Promise<void>
   onDeleteTask?: (taskId: string) => void | Promise<void>
   onDuplicateTask?: (task: Task) => void | Promise<void>
 }
 
 export function getTaskColumns({
+  currentUserId,
   onUpdateTask,
   onDeleteTask,
   onDuplicateTask,
@@ -171,6 +173,7 @@ export function getTaskColumns({
       cell: ({ row }) => (
         <DataTableRowActions
           row={row}
+          currentUserId={currentUserId}
           onUpdateTask={onUpdateTask}
           onDeleteTask={onDeleteTask}
           onDuplicateTask={onDuplicateTask}

@@ -42,6 +42,7 @@ import {
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>
+  currentUserId?: string | null
   onUpdateTask?: (task: Task) => void | Promise<void>
   onDeleteTask?: (taskId: string) => void | Promise<void>
   onDuplicateTask?: (task: Task) => void | Promise<void>
@@ -49,6 +50,7 @@ interface DataTableRowActionsProps<TData> {
 
 export function DataTableRowActions<TData>({
   row,
+  currentUserId,
   onUpdateTask,
   onDeleteTask,
   onDuplicateTask,
@@ -64,6 +66,9 @@ export function DataTableRowActions<TData>({
   }
 
   const task = parsed.data
+  const canManageTask = Boolean(
+    currentUserId && task.createdBy === currentUserId
+  )
 
   function openEditDialog() {
     setDraft(task)
@@ -104,26 +109,35 @@ export function DataTableRowActions<TData>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[160px]">
-          <DropdownMenuItem className="cursor-pointer" onClick={openEditDialog}>
-            Edit Task
-          </DropdownMenuItem>
+          {canManageTask ? (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={openEditDialog}
+            >
+              Edit Task
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             className="cursor-pointer"
             onClick={() => onDuplicateTask?.(task)}
           >
             Duplicate
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="cursor-pointer"
-            variant="destructive"
-            onClick={() => onDeleteTask?.(task.id)}
-          >
-            Delete
-            <DropdownMenuShortcut className="text-destructive">
-              ⌘⌫
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
+          {canManageTask ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer"
+                variant="destructive"
+                onClick={() => onDeleteTask?.(task.id)}
+              >
+                Delete
+                <DropdownMenuShortcut className="text-destructive">
+                  ⌘⌫
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
