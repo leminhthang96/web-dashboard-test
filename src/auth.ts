@@ -22,6 +22,8 @@ const FIRESTORE_ROLE_IDS = [
   DOCUMENT_MANAGER_ROLE_ID,
 ] as const
 
+const VALID_FIRESTORE_ROLE_IDS = new Set<string>(FIRESTORE_ROLE_IDS)
+
 async function getFirestoreRoleIds(
   uid: string,
   idToken: string
@@ -35,6 +37,56 @@ async function getFirestoreRoleIds(
   }
 
   try {
+    const queryUrl =
+      `https://firestore.googleapis.com/v1/projects/${projectId}` +
+      "/databases/(default)/documents:runQuery"
+    const queryResponse = await fetch(queryUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: "users_roles" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "uid" },
+              op: "EQUAL",
+              value: { stringValue: uid },
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    })
+
+    if (queryResponse.ok) {
+      const rows = (await queryResponse.json()) as Array<{
+        document?: {
+          fields?: {
+            roleId?: { stringValue?: string }
+          }
+        }
+      }>
+      const queriedRoles = Array.from(
+        new Set(
+          rows
+            .map((row) => row.document?.fields?.roleId?.stringValue)
+            .filter(
+              (roleId): roleId is string =>
+                typeof roleId === "string" &&
+                VALID_FIRESTORE_ROLE_IDS.has(roleId)
+            )
+        )
+      )
+
+      if (queriedRoles.length > 0) {
+        return queriedRoles
+      }
+    }
+
+    // Tương thích với các bản ghi được tạo theo document ID chuẩn.
     const roleChecks = await Promise.all(
       FIRESTORE_ROLE_IDS.map(async (roleId) => {
         const assignmentId = `ur-${uid}-${roleId}`
@@ -60,6 +112,7 @@ async function getFirestoreRoleIds(
 
     if (assignedRoles.length === 0) {
       console.error("Không tìm thấy role Firestore cho tài khoản đăng nhập.", {
+        queryStatus: queryResponse.status,
         statuses: roleChecks.map(({ roleId, status }) => ({ roleId, status })),
       })
     }

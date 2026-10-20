@@ -3,7 +3,6 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  serverTimestamp,
   setDoc,
   writeBatch,
 } from "firebase/firestore"
@@ -69,9 +68,7 @@ export async function seedRolesWithClient(): Promise<Role[]> {
 export async function seedRbacWithClient(): Promise<Role[]> {
   await auth.authStateReady()
 
-  const currentUser = auth.currentUser
-
-  if (!currentUser) {
+  if (!auth.currentUser) {
     throw new Error("Bạn cần đăng nhập để seed dữ liệu phân quyền.")
   }
 
@@ -88,18 +85,6 @@ export async function seedRbacWithClient(): Promise<Role[]> {
       { merge: true }
     )
   })
-
-  const bootstrapAssignmentId = `ur-${currentUser.uid}-role-admin`
-  batch.set(
-    doc(db, USERS_ROLES_COLLECTION, bootstrapAssignmentId),
-    {
-      id: bootstrapAssignmentId,
-      uid: currentUser.uid,
-      roleId: "role-admin",
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  )
 
   await batch.commit()
   return getRoles()

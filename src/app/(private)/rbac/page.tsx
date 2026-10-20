@@ -79,8 +79,7 @@ export default function RbacSeedPage() {
               <CardTitle>Users Roles</CardTitle>
             </div>
             <CardDescription>
-              {userRoleMockData.length} mapping mẫu và một mapping
-              Administrators cho tài khoản đang đăng nhập sẽ được ghi vào
+              {userRoleMockData.length} mapping mẫu sẽ được ghi vào
               <code className="ml-1">users_roles</code>.
             </CardDescription>
           </CardHeader>
