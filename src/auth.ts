@@ -47,14 +47,24 @@ async function getFirestoreRoleIds(
           cache: "no-store",
         })
 
-        return response.ok ? roleId : null
+        return {
+          roleId,
+          status: response.status,
+        }
       })
     )
 
-    return roleChecks.filter(
-      (roleId): roleId is (typeof FIRESTORE_ROLE_IDS)[number] =>
-        roleId !== null
-    )
+    const assignedRoles = roleChecks
+      .filter(({ status }) => status === 200)
+      .map(({ roleId }) => roleId)
+
+    if (assignedRoles.length === 0) {
+      console.error("Không tìm thấy role Firestore cho tài khoản đăng nhập.", {
+        statuses: roleChecks.map(({ roleId, status }) => ({ roleId, status })),
+      })
+    }
+
+    return assignedRoles
   } catch (error) {
     console.warn("Không thể tải role Firestore khi đăng nhập:", error)
     return []

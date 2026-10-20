@@ -18,13 +18,16 @@ export const proxy = auth((request) => {
   }
 
   const isLoggedIn = !!request.auth?.user
+  const hasRole = Boolean(
+    request.auth?.user?.isAdmin || request.auth?.user?.roles?.length
+  )
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/sign-in") ||
     request.nextUrl.pathname.startsWith("/sign-up") ||
     request.nextUrl.pathname.startsWith("/forgot-password")
 
   if (isAuthPage) {
-    if (isLoggedIn) {
+    if (isLoggedIn && hasRole) {
       return NextResponse.redirect(
         new URL(getDefaultRoute(request.auth?.user), request.url)
       )
@@ -35,6 +38,15 @@ export const proxy = auth((request) => {
   // For all other pages (including / and dashboard pages), require login
   if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/sign-in", request.url))
+  }
+
+  // A deployment cannot recalculate roles stored in an existing JWT cookie.
+  // Let a roleless user sign in again so the current Firestore assignments
+  // are loaded instead of trapping them on the 403 page.
+  if (!hasRole && !request.nextUrl.pathname.startsWith("/rbac")) {
+    return NextResponse.redirect(
+      new URL("/sign-in?reason=missing-role", request.url)
+    )
   }
 
   if (request.nextUrl.pathname === "/") {

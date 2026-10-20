@@ -62,8 +62,15 @@ service cloud.firestore {
     }
 
     match /users_roles/{assignmentId} {
-      allow read: if request.auth != null
-        && (isAdmin() || resource.data.uid == request.auth.uid);
+      // A signed-in user may get only deterministic assignment documents
+      // that start with their own UID. This supports server-side role checks
+      // without exposing another user's assignments.
+      allow get: if request.auth != null
+        && (isOwnRoleAssignment(assignmentId) || isAdmin());
+
+      // Collection queries must still be constrained by uid == auth.uid.
+      allow list: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isAdmin());
       allow create, update, delete: if isAdmin();
     }
 
@@ -115,6 +122,15 @@ service cloud.firestore {
 
     function userRoleId(roleId) {
       return 'ur-' + request.auth.uid + '-' + roleId;
+    }
+
+    function isOwnRoleAssignment(assignmentId) {
+      return assignmentId == userRoleId('role-admin')
+        || assignmentId == userRoleId('role-directors')
+        || assignmentId == userRoleId('role-accounting')
+        || assignmentId == userRoleId('role-staffs')
+        || assignmentId == userRoleId('role-customers')
+        || assignmentId == userRoleId('role-document-manager');
     }
 
     function hasIsoDocumentsAccess() {
