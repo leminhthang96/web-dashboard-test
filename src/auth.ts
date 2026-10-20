@@ -36,6 +36,63 @@ async function getFirestoreRoleIds(
     return []
   }
 
+  let directStatuses: Array<{ assignmentId: string; status: number }> = []
+
+  // Ưu tiên document ID chuẩn vì Firestore Rules cho phép người dùng đọc
+  // trực tiếp các bản ghi quyền của chính họ.
+  try {
+    const roleChecks = await Promise.all(
+      FIRESTORE_ROLE_IDS.map(async (roleId) => {
+        const assignmentId = `ur-${uid}-${roleId}`
+        const documentUrl =
+          `https://firestore.googleapis.com/v1/projects/${projectId}` +
+          "/databases/(default)/documents/users_roles/" +
+          encodeURIComponent(assignmentId)
+        const response = await fetch(documentUrl, {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: "no-store",
+        })
+
+        let storedRoleId: string | undefined
+        if (response.ok) {
+          const assignment = (await response.json()) as {
+            fields?: { roleId?: { stringValue?: string } }
+          }
+          storedRoleId = assignment.fields?.roleId?.stringValue
+        }
+
+        return {
+          assignmentId,
+          status: response.status,
+          storedRoleId,
+        }
+      })
+    )
+
+    directStatuses = roleChecks.map(({ assignmentId, status }) => ({
+      assignmentId,
+      status,
+    }))
+    const directRoles = Array.from(
+      new Set(
+        roleChecks
+          .map(({ storedRoleId }) => storedRoleId)
+          .filter(
+            (roleId): roleId is string =>
+              typeof roleId === "string" &&
+              VALID_FIRESTORE_ROLE_IDS.has(roleId)
+          )
+      )
+    )
+
+    if (directRoles.length > 0) {
+      return directRoles
+    }
+  } catch (error) {
+    console.warn("Không thể đọc role theo document ID:", error)
+  }
+
+  // Dự phòng cho dữ liệu cũ có document ID không khớp nhưng trường uid đúng.
   try {
     const queryUrl =
       `https://firestore.googleapis.com/v1/projects/${projectId}` +
@@ -86,42 +143,16 @@ async function getFirestoreRoleIds(
       }
     }
 
-    // Tương thích với các bản ghi được tạo theo document ID chuẩn.
-    const roleChecks = await Promise.all(
-      FIRESTORE_ROLE_IDS.map(async (roleId) => {
-        const assignmentId = `ur-${uid}-${roleId}`
-        const documentUrl =
-          `https://firestore.googleapis.com/v1/projects/${projectId}` +
-          "/databases/(default)/documents/users_roles/" +
-          encodeURIComponent(assignmentId)
-        const response = await fetch(documentUrl, {
-          headers: { Authorization: `Bearer ${idToken}` },
-          cache: "no-store",
-        })
-
-        return {
-          roleId,
-          status: response.status,
-        }
-      })
-    )
-
-    const assignedRoles = roleChecks
-      .filter(({ status }) => status === 200)
-      .map(({ roleId }) => roleId)
-
-    if (assignedRoles.length === 0) {
-      console.error("Không tìm thấy role Firestore cho tài khoản đăng nhập.", {
-        queryStatus: queryResponse.status,
-        statuses: roleChecks.map(({ roleId, status }) => ({ roleId, status })),
-      })
-    }
-
-    return assignedRoles
+    console.error("Không tìm thấy role Firestore cho tài khoản đăng nhập.", {
+      uid,
+      directStatuses,
+      queryStatus: queryResponse.status,
+    })
   } catch (error) {
-    console.warn("Không thể tải role Firestore khi đăng nhập:", error)
-    return []
+    console.warn("Không thể truy vấn role theo uid:", error)
   }
+
+  return []
 }
 
 async function verifyFirebaseIdToken(idToken: string) {

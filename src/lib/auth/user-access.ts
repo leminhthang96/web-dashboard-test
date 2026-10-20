@@ -19,20 +19,22 @@ export async function getUserAuthorization(
     return { roles: [ADMIN_ROLE_ID], isAdmin: true }
   }
 
+  let claims: Record<string, unknown> = {}
   try {
-    const claims = customAttributes
+    claims = customAttributes
       ? (JSON.parse(customAttributes) as Record<string, unknown>)
       : {}
-    const claimRoles = Array.isArray(claims.roles)
-      ? claims.roles.filter((role): role is string => typeof role === "string")
-      : []
-    const roles = [...new Set([...claimRoles, ...assignedRoles])].map((role) =>
-      role === "admin" ? ADMIN_ROLE_ID : role
-    )
-    const isAdmin = claims.admin === true || roles.includes(ADMIN_ROLE_ID)
-
-    return { roles, isAdmin }
   } catch {
-    return { roles: [], isAdmin: false }
+    // Custom claims lỗi không được làm mất role đã đọc từ Firestore.
   }
+
+  const claimRoles = Array.isArray(claims.roles)
+    ? claims.roles.filter((role): role is string => typeof role === "string")
+    : []
+  const roles = [...new Set([...claimRoles, ...assignedRoles])].map((role) =>
+    role === "admin" ? ADMIN_ROLE_ID : role
+  )
+  const isAdmin = claims.admin === true || roles.includes(ADMIN_ROLE_ID)
+
+  return { roles, isAdmin }
 }
