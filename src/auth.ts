@@ -1,60 +1,60 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 
+import {
+  ACCOUNTING_ROLE_ID,
+  ADMIN_ROLE_ID,
+  CUSTOMERS_ROLE_ID,
+  DIRECTORS_ROLE_ID,
+  DOCUMENT_MANAGER_ROLE_ID,
+  STAFFS_ROLE_ID,
+} from "@/lib/auth/permissions"
 import { getUserAuthorization } from "@/lib/auth/user-access"
 
 import { authConfig } from "./auth.config"
+
+const FIRESTORE_ROLE_IDS = [
+  ADMIN_ROLE_ID,
+  DIRECTORS_ROLE_ID,
+  ACCOUNTING_ROLE_ID,
+  STAFFS_ROLE_ID,
+  CUSTOMERS_ROLE_ID,
+  DOCUMENT_MANAGER_ROLE_ID,
+] as const
 
 async function getFirestoreRoleIds(
   uid: string,
   idToken: string
 ): Promise<string[]> {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  if (!projectId) return []
+  if (!projectId) {
+    console.error(
+      "Không thể tải role: NEXT_PUBLIC_FIREBASE_PROJECT_ID chưa được cấu hình."
+    )
+    return []
+  }
 
   try {
-    const response = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          structuredQuery: {
-            from: [{ collectionId: "users_roles" }],
-            where: {
-              fieldFilter: {
-                field: { fieldPath: "uid" },
-                op: "EQUAL",
-                value: { stringValue: uid },
-              },
-            },
-            select: { fields: [{ fieldPath: "roleId" }] },
-          },
-        }),
-      }
+    const roleChecks = await Promise.all(
+      FIRESTORE_ROLE_IDS.map(async (roleId) => {
+        const assignmentId = `ur-${uid}-${roleId}`
+        const documentUrl =
+          `https://firestore.googleapis.com/v1/projects/${projectId}` +
+          "/databases/(default)/documents/users_roles/" +
+          encodeURIComponent(assignmentId)
+        const response = await fetch(documentUrl, {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: "no-store",
+        })
+
+        return response.ok ? roleId : null
+      })
     )
 
-    if (!response.ok) {
-      console.warn("Không thể tải role Firestore khi đăng nhập.")
-      return []
-    }
-
-    const rows = (await response.json()) as Array<{
-      document?: {
-        fields?: { roleId?: { stringValue?: string } }
-      }
-    }>
-
-    return [
-      ...new Set(
-        rows
-          .map((row) => row.document?.fields?.roleId?.stringValue)
-          .filter((roleId): roleId is string => Boolean(roleId))
-      ),
-    ]
+    return roleChecks.filter(
+      (roleId): roleId is (typeof FIRESTORE_ROLE_IDS)[number] =>
+        roleId !== null
+    )
   } catch (error) {
     console.warn("Không thể tải role Firestore khi đăng nhập:", error)
     return []
