@@ -15,10 +15,16 @@ function parseServiceAccount(): FirebaseServiceAccount | null {
   const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim()
   if (!rawKey) return null
 
-  const json = rawKey.startsWith("{")
-    ? rawKey
-    : Buffer.from(rawKey, "base64").toString("utf8")
-  const serviceAccount = JSON.parse(json) as FirebaseServiceAccount
+  let decoded = rawKey
+  if (!decoded.startsWith("{") && !decoded.startsWith('"')) {
+    decoded = Buffer.from(decoded, "base64").toString("utf8")
+  }
+
+  let parsed: unknown = JSON.parse(decoded)
+  if (typeof parsed === "string") {
+    parsed = JSON.parse(parsed)
+  }
+  const serviceAccount = parsed as FirebaseServiceAccount
 
   if (
     !serviceAccount.project_id ||

@@ -30,14 +30,28 @@ async function getAdminRoleIds(uid: string): Promise<string[] | null> {
   if (!adminDb) return null
 
   try {
+    const directAssignments = await Promise.all(
+      FIRESTORE_ROLE_IDS.map(async (roleId) => {
+        const assignment = await adminDb
+          .collection("users_roles")
+          .doc(`ur-${uid}-${roleId}`)
+          .get()
+        if (!assignment.exists) return null
+
+        const storedRoleId = assignment.get("roleId")
+        return typeof storedRoleId === "string" &&
+          VALID_FIRESTORE_ROLE_IDS.has(storedRoleId)
+          ? storedRoleId
+          : roleId
+      })
+    )
     const snapshot = await adminDb
       .collection("users_roles")
       .where("uid", "==", uid)
       .get()
     return Array.from(
       new Set(
-        snapshot.docs
-          .map((document) => document.get("roleId"))
+        [...directAssignments, ...snapshot.docs.map((document) => document.get("roleId"))]
           .filter(
             (roleId): roleId is string =>
               typeof roleId === "string" &&
