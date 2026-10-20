@@ -10,6 +10,7 @@ import {
   STAFFS_ROLE_ID,
 } from "@/lib/auth/permissions"
 import { getUserAuthorization } from "@/lib/auth/user-access"
+import { getAdminFirestore } from "@/lib/firebase/admin"
 
 import { authConfig } from "./auth.config"
 
@@ -24,10 +25,39 @@ const FIRESTORE_ROLE_IDS = [
 
 const VALID_FIRESTORE_ROLE_IDS = new Set<string>(FIRESTORE_ROLE_IDS)
 
+async function getAdminRoleIds(uid: string): Promise<string[] | null> {
+  const adminDb = getAdminFirestore()
+  if (!adminDb) return null
+
+  try {
+    const snapshot = await adminDb
+      .collection("users_roles")
+      .where("uid", "==", uid)
+      .get()
+    return Array.from(
+      new Set(
+        snapshot.docs
+          .map((document) => document.get("roleId"))
+          .filter(
+            (roleId): roleId is string =>
+              typeof roleId === "string" &&
+              VALID_FIRESTORE_ROLE_IDS.has(roleId)
+          )
+      )
+    )
+  } catch (error) {
+    console.error("Firebase Admin SDK không thể tải role:", error)
+    return null
+  }
+}
+
 async function getFirestoreRoleIds(
   uid: string,
   idToken: string
 ): Promise<string[]> {
+  const adminRoles = await getAdminRoleIds(uid)
+  if (adminRoles?.length) return adminRoles
+
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   if (!projectId) {
     console.error(
