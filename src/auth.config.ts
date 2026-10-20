@@ -14,9 +14,6 @@ export const authConfig = {
       const isLandingPage = nextUrl.pathname.startsWith("/landing")
 
       if (isAuthPage) {
-        if (isLoggedIn) {
-          return Response.redirect(new URL("/dashboard", nextUrl))
-        }
         return true
       }
 
@@ -26,6 +23,22 @@ export const authConfig = {
 
       // For all other pages (including / and dashboard pages), require login
       return isLoggedIn
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.uid = user.id
+        token.roles = user.roles
+        token.isAdmin = user.isAdmin
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.uid as string
+        session.user.roles = token.roles ?? []
+        session.user.isAdmin = token.isAdmin ?? false
+      }
+      return session
     },
   },
   providers: [], // Will be populated with actual providers in auth.ts

@@ -30,7 +30,11 @@ import { RoleFormDialog } from "@/modules/users/components/role-form-dialog"
 import { StatCards } from "@/modules/users/components/stat-cards"
 import { getUserColumns } from "@/modules/users/components/user-columns"
 import { UserDataTable } from "@/modules/users/components/user-data-table"
-import { deleteRole, getRoles, seedRolesWithClient } from "@/modules/users/services/role-services"
+import {
+  deleteRole,
+  getRoles,
+  seedRbacWithClient,
+} from "@/modules/users/services/role-services"
 import {
   getUserRoles,
   removeAllAssignmentsForRole,
@@ -92,9 +96,9 @@ export default function UsersPage() {
   const handleSeedRoles = useCallback(async () => {
     try {
       setIsSeeding(true)
-      await seedRolesWithClient()
+      await seedRbacWithClient()
       await refreshAll()
-      toast.success("Đã seed 5 roles mẫu")
+      toast.success("Đã seed 5 roles và dữ liệu users_roles")
     } catch (error) {
       console.error("Seed roles failed:", error)
       toast.error("Seed roles thất bại")

@@ -19,7 +19,10 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
-import { hasAdminAccess } from "@/lib/auth/permissions"
+import {
+  canAccessRoute,
+  getDefaultRoute,
+} from "@/lib/auth/permissions"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -48,6 +51,11 @@ const data = {
           url: "/dashboard-2",
           icon: LayoutPanelLeft,
         },
+        {
+          title: "Dashboard 3",
+          url: "/dashboard-3",
+          icon: Megaphone,
+        },
       ],
     },
     {
@@ -74,7 +82,7 @@ const data = {
           icon: Calendar,
         },
         {
-          title: "Documents",
+          title: "ISO Documents",
           url: "/documents",
           icon: FileText,
         },
@@ -156,10 +164,15 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session, status } = useSession()
-  const canAccessAdministration = hasAdminAccess(session?.user)
-  const navGroups = data.navGroups.filter(
-    (group) => group.label !== "Administration" || canAccessAdministration
-  )
+  const navGroups = data.navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        canAccessRoute(session?.user, item.url)
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
+  const homeUrl = getDefaultRoute(session?.user)
 
   const user = {
     name:
@@ -176,7 +189,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
+              <Link href={homeUrl}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Logo size={24} className="text-current" />
                 </div>

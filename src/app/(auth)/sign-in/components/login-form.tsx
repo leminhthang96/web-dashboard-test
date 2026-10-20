@@ -69,7 +69,7 @@ export function LoginForm({
         throw new Error(result.error)
       }
 
-      router.push("/dashboard")
+      router.push("/")
       router.refresh()
     } catch (error) {
       form.setError("root", {
@@ -94,7 +94,7 @@ export function LoginForm({
         throw new Error(result.error)
       }
 
-      router.push("/dashboard")
+      router.push("/")
       router.refresh()
     } catch (error) {
       form.setError("root", {

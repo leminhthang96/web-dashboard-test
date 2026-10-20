@@ -5,6 +5,62 @@ import { getUserAuthorization } from "@/lib/auth/user-access"
 
 import { authConfig } from "./auth.config"
 
+async function getFirestoreRoleIds(
+  uid: string,
+  idToken: string
+): Promise<string[]> {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  if (!projectId) return []
+
+  try {
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: "users_roles" }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "uid" },
+                op: "EQUAL",
+                value: { stringValue: uid },
+              },
+            },
+            select: { fields: [{ fieldPath: "roleId" }] },
+          },
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      console.warn("Không thể tải role Firestore khi đăng nhập.")
+      return []
+    }
+
+    const rows = (await response.json()) as Array<{
+      document?: {
+        fields?: { roleId?: { stringValue?: string } }
+      }
+    }>
+
+    return [
+      ...new Set(
+        rows
+          .map((row) => row.document?.fields?.roleId?.stringValue)
+          .filter((roleId): roleId is string => Boolean(roleId))
+      ),
+    ]
+  } catch (error) {
+    console.warn("Không thể tải role Firestore khi đăng nhập:", error)
+    return []
+  }
+}
+
 async function verifyFirebaseIdToken(idToken: string) {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
   if (!apiKey) {
@@ -65,11 +121,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const firebaseUser = await verifyFirebaseIdToken(
             credentials.idToken
           )
+          const assignedRoles = await getFirestoreRoleIds(
+            firebaseUser.uid,
+            credentials.idToken
+          )
           const authorization = await getUserAuthorization(
             firebaseUser.uid,
             firebaseUser.email,
             firebaseUser.name,
-            firebaseUser.customAttributes
+            firebaseUser.customAttributes,
+            assignedRoles
           )
 
           return {
@@ -87,22 +148,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.uid = user.id
-        token.roles = user.roles
-        token.isAdmin = user.isAdmin
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.uid as string
-        session.user.roles = token.roles ?? []
-        session.user.isAdmin = token.isAdmin ?? false
-      }
-      return session
-    },
-  },
 })

@@ -92,7 +92,7 @@ export function SignupForm({
         throw new Error(result.error)
       }
 
-      router.push("/dashboard")
+      router.push("/")
     } catch (error) {
       setGlobalError(getFirebaseAuthErrorMessage(error, "signup"))
     } finally {
@@ -116,7 +116,7 @@ export function SignupForm({
         throw new Error(result.error)
       }
 
-      router.push("/dashboard")
+      router.push("/")
     } catch (error) {
       setGlobalError(getFirebaseAuthErrorMessage(error, "signup"))
     } finally {

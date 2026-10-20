@@ -8,13 +8,14 @@ import {
   writeBatch,
 } from "firebase/firestore"
 
-import { db } from "@/lib/firebase/client"
+import { auth, db } from "@/lib/firebase/client"
 import { getFirestoreCollection } from "@/lib/firebase/firestore-query"
 
-import { roleMockData } from "./role-mock-data"
+import { roleMockData, userRoleMockData } from "./role-mock-data"
 import type { Role } from "./types/user-types"
 
 const ROLES_COLLECTION = "roles"
+const USERS_ROLES_COLLECTION = "users_roles"
 
 export async function getRoles(): Promise<Role[]> {
   return getFirestoreCollection<Role>(ROLES_COLLECTION, roleMockData)
@@ -49,11 +50,56 @@ export async function deleteRole(roleId: string): Promise<void> {
 }
 
 export async function seedRolesWithClient(): Promise<Role[]> {
+  await auth.authStateReady()
+
+  if (!auth.currentUser) {
+    throw new Error("Bạn cần đăng nhập để seed dữ liệu phân quyền.")
+  }
+
   const batch = writeBatch(db)
 
   roleMockData.forEach((role) => {
     batch.set(doc(db, ROLES_COLLECTION, role.id), role, { merge: true })
   })
+
+  await batch.commit()
+  return getRoles()
+}
+
+export async function seedRbacWithClient(): Promise<Role[]> {
+  await auth.authStateReady()
+
+  const currentUser = auth.currentUser
+
+  if (!currentUser) {
+    throw new Error("Bạn cần đăng nhập để seed dữ liệu phân quyền.")
+  }
+
+  const batch = writeBatch(db)
+
+  roleMockData.forEach((role) => {
+    batch.set(doc(db, ROLES_COLLECTION, role.id), role, { merge: true })
+  })
+
+  userRoleMockData.forEach((userRole) => {
+    batch.set(
+      doc(db, USERS_ROLES_COLLECTION, userRole.id),
+      userRole,
+      { merge: true }
+    )
+  })
+
+  const bootstrapAssignmentId = `ur-${currentUser.uid}-role-admin`
+  batch.set(
+    doc(db, USERS_ROLES_COLLECTION, bootstrapAssignmentId),
+    {
+      id: bootstrapAssignmentId,
+      uid: currentUser.uid,
+      roleId: "role-admin",
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  )
 
   await batch.commit()
   return getRoles()

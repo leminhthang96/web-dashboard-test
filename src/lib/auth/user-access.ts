@@ -12,7 +12,8 @@ export async function getUserAuthorization(
   _uid: string,
   email?: string | null,
   username?: string | null,
-  customAttributes?: string | null
+  customAttributes?: string | null,
+  assignedRoles: string[] = []
 ): Promise<UserAuthorization> {
   if (isAdminIdentifier(email) || isAdminIdentifier(username)) {
     return { roles: [ADMIN_ROLE_ID], isAdmin: true }
@@ -25,7 +26,7 @@ export async function getUserAuthorization(
     const claimRoles = Array.isArray(claims.roles)
       ? claims.roles.filter((role): role is string => typeof role === "string")
       : []
-    const roles = claimRoles.map((role) =>
+    const roles = [...new Set([...claimRoles, ...assignedRoles])].map((role) =>
       role === "admin" ? ADMIN_ROLE_ID : role
     )
     const isAdmin = claims.admin === true || roles.includes(ADMIN_ROLE_ID)

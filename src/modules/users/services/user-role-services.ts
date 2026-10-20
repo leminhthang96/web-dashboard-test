@@ -30,19 +30,15 @@ export async function getUserRoles(): Promise<UserRole[]> {
 }
 
 export async function getRolesForUser(uid: string): Promise<UserRole[]> {
-  try {
-    const snap = await getDocs(collection(db, USERS_ROLES_COLLECTION))
-    const result = snap.docs
-      .map((d) => {
-        const data = d.data() as Omit<UserRole, "id">
-        return { ...data, id: d.id }
-      })
-      .filter((ur) => ur.uid === uid)
-    return JSON.parse(JSON.stringify(result))
-  } catch (error) {
-    console.warn("Failed to load user roles, using mock fallback:", error)
-    return userRoleMockData.filter((ur) => ur.uid === uid)
-  }
+  const snap = await getDocs(
+    query(collection(db, USERS_ROLES_COLLECTION), where("uid", "==", uid))
+  )
+  const result = snap.docs.map((d) => {
+    const data = d.data() as Omit<UserRole, "id">
+    return { ...data, id: d.id }
+  })
+
+  return JSON.parse(JSON.stringify(result))
 }
 
 export async function getUsersForRole(roleId: string): Promise<UserRole[]> {

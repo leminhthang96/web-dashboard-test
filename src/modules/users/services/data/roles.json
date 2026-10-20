@@ -1,44 +1,37 @@
 [
   {
     "id": "role-admin",
-    "name": "Admin",
-    "description": "Quản trị viên hệ thống - Toàn quyền",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
+    "name": "Administrators",
+    "description": "Quản trị viên hệ thống - được truy cập toàn bộ chức năng",
+    "createdAt": "2026-10-19T00:00:00Z",
+    "updatedAt": "2026-10-19T00:00:00Z"
   },
   {
-    "id": "role-author",
-    "name": "Author",
-    "description": "Tác giả - Có thể tạo nội dung",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
+    "id": "role-directors",
+    "name": "Directors",
+    "description": "Ban giám đốc - truy cập các dashboard và tài liệu ISO",
+    "createdAt": "2026-10-19T00:00:00Z",
+    "updatedAt": "2026-10-19T00:00:00Z"
   },
   {
-    "id": "role-editor",
-    "name": "Editor",
-    "description": "Biên tập viên - Có thể chỉnh sửa nội dung",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
+    "id": "role-accounting",
+    "name": "Accounting",
+    "description": "Kế toán - truy cập Dashboard 3 và tài liệu ISO",
+    "createdAt": "2026-10-19T00:00:00Z",
+    "updatedAt": "2026-10-19T00:00:00Z"
   },
   {
-    "id": "role-maintainer",
-    "name": "Maintainer",
-    "description": "Người vận hành - Quản lý kỹ thuật",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
+    "id": "role-staffs",
+    "name": "Staffs",
+    "description": "Nhân viên - truy cập tài liệu ISO",
+    "createdAt": "2026-10-19T00:00:00Z",
+    "updatedAt": "2026-10-19T00:00:00Z"
   },
   {
-    "id": "role-document-manager",
-    "name": "Document Manager",
-    "description": "Quản lý tài liệu - Có thể tạo, chỉnh sửa và xóa tài liệu",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  },
-  {
-    "id": "role-subscriber",
-    "name": "Subscriber",
-    "description": "Người đăng ký - Quyền xem cơ bản",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
+    "id": "role-customers",
+    "name": "Customers",
+    "description": "Khách hàng - truy cập chức năng Chat",
+    "createdAt": "2026-10-19T00:00:00Z",
+    "updatedAt": "2026-10-19T00:00:00Z"
   }
 ]

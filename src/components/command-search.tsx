@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Command as CommandPrimitive } from "cmdk"
 import {
@@ -11,6 +12,7 @@ import {
   CheckSquare,
   MessageCircle,
   Calendar,
+  FileText,
   Shield,
   AlertTriangle,
   type LucideIcon,
@@ -18,6 +20,7 @@ import {
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { canAccessRoute } from "@/lib/auth/permissions"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -117,6 +120,7 @@ interface CommandSearchProps {
 
 export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   const router = useRouter()
+  const { data: session } = useSession()
   const commandRef = React.useRef<HTMLDivElement>(null)
 
   const searchItems: SearchItem[] = [
@@ -129,6 +133,12 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
     { title: "Tasks", url: "/tasks", group: "Apps", icon: CheckSquare },
     { title: "Chat", url: "/chat", group: "Apps", icon: MessageCircle },
     { title: "Calendar", url: "/calendar", group: "Apps", icon: Calendar },
+    {
+      title: "ISO Documents",
+      url: "/documents",
+      group: "Apps",
+      icon: FileText,
+    },
 
     // Auth Pages
     { title: "Sign In", url: "/sign-in", group: "Auth Pages", icon: Shield },
@@ -145,13 +155,15 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
     // Pages
   ]
 
-  const groupedItems = searchItems.reduce((acc, item) => {
+  const groupedItems = searchItems
+    .filter((item) => canAccessRoute(session?.user, item.url))
+    .reduce((acc, item) => {
     if (!acc[item.group]) {
       acc[item.group] = []
     }
     acc[item.group].push(item)
     return acc
-  }, {} as Record<string, SearchItem[]>)
+    }, {} as Record<string, SearchItem[]>)
 
   const handleSelect = (url: string) => {
     router.push(url)
