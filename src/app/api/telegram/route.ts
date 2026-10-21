@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getApiRouteErrorResponse } from "@/lib/auth/api-authorization"
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -21,6 +23,12 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  const authorizationError = await getApiRouteErrorResponse(
+    "/telegram",
+    CORS_HEADERS
+  )
+  if (authorizationError) return authorizationError
+
   const botToken = process.env.TELEGRAM_BOT_TOKEN
 
   if (!botToken) {

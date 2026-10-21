@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 import { z } from "zod"
 
+import { getApiRouteErrorResponse } from "@/lib/auth/api-authorization"
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -27,6 +29,12 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  const authorizationError = await getApiRouteErrorResponse(
+    "/resend",
+    CORS_HEADERS
+  )
+  if (authorizationError) return authorizationError
+
   const apiKey = process.env.RESEND_API_KEY
 
   if (!apiKey) {

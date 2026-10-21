@@ -43,7 +43,7 @@ export const proxy = auth((request) => {
   // A deployment cannot recalculate roles stored in an existing JWT cookie.
   // Let a roleless user sign in again so the current Firestore assignments
   // are loaded instead of trapping them on the 403 page.
-  if (!hasRole && !request.nextUrl.pathname.startsWith("/rbac")) {
+  if (!hasRole) {
     return NextResponse.redirect(
       new URL("/sign-in?reason=missing-role", request.url)
     )

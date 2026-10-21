@@ -12,6 +12,11 @@ type AdminAccessUser = {
   isAdmin?: boolean
 }
 
+type RouteAccessRule = {
+  path: string
+  roles: readonly string[]
+}
+
 export function isAdminIdentifier(value?: string | null): boolean {
   return value?.trim().toLowerCase() === ADMIN_EMAIL
 }
@@ -36,7 +41,11 @@ export function hasDocumentManagerAccess(
   )
 }
 
-const ROUTE_ROLE_RULES: Array<{ path: string; roles: string[] }> = [
+/**
+ * Các route không có trong danh sách này chỉ dành cho quản trị viên.
+ * Quản trị viên luôn có quyền truy cập toàn bộ ứng dụng.
+ */
+export const ROUTE_ACCESS_RULES: readonly RouteAccessRule[] = [
   { path: "/dashboard", roles: [DIRECTORS_ROLE_ID] },
   { path: "/dashboard-2", roles: [DIRECTORS_ROLE_ID] },
   {
@@ -45,7 +54,12 @@ const ROUTE_ROLE_RULES: Array<{ path: string; roles: string[] }> = [
   },
   {
     path: "/documents",
-    roles: [DIRECTORS_ROLE_ID, ACCOUNTING_ROLE_ID, STAFFS_ROLE_ID],
+    roles: [
+      DIRECTORS_ROLE_ID,
+      ACCOUNTING_ROLE_ID,
+      STAFFS_ROLE_ID,
+      DOCUMENT_MANAGER_ROLE_ID,
+    ],
   },
   { path: "/chat", roles: [CUSTOMERS_ROLE_ID] },
 ]
@@ -58,13 +72,9 @@ export function canAccessRoute(
   user: AdminAccessUser | null | undefined,
   pathname: string
 ): boolean {
-  // Bootstrap page: every signed-in user may open it before having a role.
-  // Firestore Rules still protect the actual RBAC writes.
-  if (matchesRoute(pathname, "/rbac")) return true
-
   if (hasAdminAccess(user)) return true
 
-  const rule = ROUTE_ROLE_RULES.find(({ path }) =>
+  const rule = ROUTE_ACCESS_RULES.find(({ path }) =>
     matchesRoute(pathname, path)
   )
 
