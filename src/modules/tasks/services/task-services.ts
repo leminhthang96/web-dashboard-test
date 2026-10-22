@@ -12,7 +12,7 @@ import {
 
 import { auth, db } from "@/lib/firebase/client"
 import { taskMockData } from "./task-mock-data"
-import type { Task } from "./types/task-types"
+import { taskSchema, type Task, type TaskInput } from "./types/task-types"
 
 const TASKS_COLLECTION = "tasks"
 
@@ -35,17 +35,23 @@ export async function getTasks(): Promise<Task[]> {
   const snapshot = await getDocs(
     query(
       collection(db, TASKS_COLLECTION),
-      where("reporter", "==", user.uid)
+      where("createdBy", "==", user.uid)
     )
   )
 
-  const result = snapshot.docs.map((document) => {
-    const data = document.data() as Task
-
-    return {
+  const result = snapshot.docs.flatMap((document) => {
+    const data = document.data()
+    const parsed = taskSchema.safeParse({
       ...data,
       id: data.id ?? document.id,
+    })
+
+    if (!parsed.success) {
+      console.warn(`Task ${document.id} có dữ liệu không hợp lệ.`, parsed.error)
+      return []
     }
+
+    return [parsed.data]
   })
 
   return JSON.parse(JSON.stringify(result))
@@ -67,9 +73,9 @@ export async function seedTasksWithClient(): Promise<Task[]> {
   return getTasks()
 }
 
-export async function createTask(task: Task): Promise<Task> {
+export async function createTask(task: TaskInput): Promise<Task> {
   const user = await requireFirebaseUser()
-  const ownedTask = {
+  const ownedTask: Task = {
     ...task,
     createdBy: user.uid,
     reporter: user.uid,
@@ -87,15 +93,25 @@ export async function updateTask(task: Task): Promise<Task> {
     throw new Error("Bạn chỉ có thể sửa công việc do mình tạo.")
   }
 
-  const ownedTask = { ...task, createdBy: user.uid }
-  await updateDoc(doc(db, TASKS_COLLECTION, task.id), ownedTask)
+  const updates = {
+    title: task.title,
+    status: task.status,
+    category: task.category,
+    priority: task.priority,
+  }
+  await updateDoc(doc(db, TASKS_COLLECTION, task.id), updates)
 
-  return ownedTask
+  return { ...task, ...updates }
 }
 
-export async function deleteTask(taskId: string): Promise<void> {
-  await requireFirebaseUser()
-  await deleteDoc(doc(db, TASKS_COLLECTION, taskId))
+export async function deleteTask(task: Task): Promise<void> {
+  const user = await requireFirebaseUser()
+
+  if (task.createdBy !== user.uid) {
+    throw new Error("Bạn chỉ có thể xóa công việc do mình tạo.")
+  }
+
+  await deleteDoc(doc(db, TASKS_COLLECTION, task.id))
 }
 
 export function getTaskStats(tasks: Task[]) {

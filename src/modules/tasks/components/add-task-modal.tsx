@@ -29,7 +29,7 @@ import {
   statuses,
   categories,
 } from "@/modules/tasks/services/task-mock-data"
-import type { Task } from "@/modules/tasks/services/types/task-types"
+import type { TaskInput } from "@/modules/tasks/services/types/task-types"
 
 // Extended task schema for the form
 const taskFormSchema = z.object({
@@ -44,7 +44,7 @@ const taskFormSchema = z.object({
 type TaskFormData = z.infer<typeof taskFormSchema>
 
 interface AddTaskModalProps {
-  onAddTask?: (task: Task) => void | Promise<void>
+  onAddTask?: (task: TaskInput) => void | Promise<void>
   trigger?: React.ReactNode
 }
 
@@ -78,7 +78,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
       })
 
       // Create the task
-      const newTask: Task = {
+      const newTask: TaskInput = {
         id: validatedData.id,
         title: validatedData.title,
         status: validatedData.status,

@@ -9,7 +9,7 @@ import {
   ChevronsUp,
 } from "lucide-react"
 
-import { taskSchema } from "./types/task-types"
+import { taskInputSchema } from "./types/task-types"
 
 export const categories = [
   {
@@ -433,4 +433,4 @@ const tasksData = [
   },
 ]
 
-export const taskMockData = taskSchema.array().parse(tasksData)
+export const taskMockData = taskInputSchema.array().parse(tasksData)

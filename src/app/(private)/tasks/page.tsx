@@ -21,7 +21,10 @@ import {
   seedTasksWithClient,
   updateTask,
 } from "@/modules/tasks/services/task-services"
-import type { Task } from "@/modules/tasks/services/types/task-types"
+import type {
+  Task,
+  TaskInput,
+} from "@/modules/tasks/services/types/task-types"
 
 export default function TaskPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -53,7 +56,7 @@ export default function TaskPage() {
   }, [refreshTasks])
 
   const handleAddTask = useCallback(
-    async (newTask: Task) => {
+    async (newTask: TaskInput) => {
       await createTask(newTask)
       await refreshTasks()
     },
@@ -61,24 +64,28 @@ export default function TaskPage() {
   )
 
   const handleUpdateTask = useCallback(async (task: Task) => {
-    await updateTask(task)
-    setTasks((prev) => prev.map((item) => (item.id === task.id ? task : item)))
+    const updatedTask = await updateTask(task)
+    setTasks((prev) =>
+      prev.map((item) => (item.id === task.id ? updatedTask : item))
+    )
   }, [])
 
-  const handleDeleteTask = useCallback(async (taskId: string) => {
-    await deleteTask(taskId)
-    setTasks((prev) => prev.filter((task) => task.id !== taskId))
+  const handleDeleteTask = useCallback(async (task: Task) => {
+    await deleteTask(task)
+    setTasks((prev) => prev.filter((item) => item.id !== task.id))
   }, [])
 
   const handleDuplicateTask = useCallback(async (task: Task) => {
-    const duplicate: Task = {
-      ...task,
+    const duplicate: TaskInput = {
       id: `TASK-${Date.now()}`,
       title: `${task.title} (Copy)`,
+      status: task.status,
+      category: task.category,
+      priority: task.priority,
     }
 
-    await createTask(duplicate)
-    setTasks((prev) => [duplicate, ...prev])
+    const createdTask = await createTask(duplicate)
+    setTasks((prev) => [createdTask, ...prev])
   }, [])
 
   const handleSeedTasks = useCallback(async () => {

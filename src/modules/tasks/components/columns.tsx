@@ -18,7 +18,7 @@ import { DataTableRowActions } from "./data-table-row-actions"
 interface TaskColumnActions {
   currentUserId?: string | null
   onUpdateTask?: (task: Task) => void | Promise<void>
-  onDeleteTask?: (taskId: string) => void | Promise<void>
+  onDeleteTask?: (task: Task) => void | Promise<void>
   onDuplicateTask?: (task: Task) => void | Promise<void>
 }
 

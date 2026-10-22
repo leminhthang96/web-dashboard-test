@@ -27,12 +27,12 @@ import {
 
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableToolbar } from "./data-table-toolbar"
-import type { Task } from "@/modules/tasks/services/types/task-types"
+import type { TaskInput } from "@/modules/tasks/services/types/task-types"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  onAddTask?: (task: Task) => void | Promise<void>
+  onAddTask?: (task: TaskInput) => void | Promise<void>
   onSeedTasks?: () => void | Promise<void>
   isSeedingTasks?: boolean
 }

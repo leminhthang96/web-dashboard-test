@@ -75,19 +75,20 @@ service cloud.firestore {
     }
 
     // ─── Tasks Collection ─────────────────────────────────────────
-    // A task is visible only to its reporter. Only its creator can modify it.
+    // A task is visible and mutable only to the user who created it.
     match /tasks/{taskId} {
       allow read: if request.auth != null
-        && resource.data.reporter == request.auth.uid;
+        && resource.data.createdBy == request.auth.uid;
 
       allow create: if request.auth != null
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.reporter == request.auth.uid;
+        && request.resource.data.createdBy == request.auth.uid;
 
       allow update: if request.auth != null
         && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.reporter == resource.data.reporter;
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasNone(['createdBy']);
 
       allow delete: if request.auth != null
         && resource.data.createdBy == request.auth.uid;

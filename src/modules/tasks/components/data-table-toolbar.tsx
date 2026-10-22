@@ -20,11 +20,11 @@ import {
   priorities,
   statuses,
 } from "@/modules/tasks/services/task-mock-data"
-import type { Task } from "@/modules/tasks/services/types/task-types"
+import type { TaskInput } from "@/modules/tasks/services/types/task-types"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
-  onAddTask?: (task: Task) => void | Promise<void>
+  onAddTask?: (task: TaskInput) => void | Promise<void>
   onSeedTasks?: () => void | Promise<void>
   isSeedingTasks?: boolean
 }

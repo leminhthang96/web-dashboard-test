@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Customers Collection (RLS - Row-Level Security) ──────────
+    // Each customer document has a `userId` field that must match the
+    // authenticated user's UID. This enforces row-level security so users
+    // can only read, create, update, and delete their own customer records.
+
+    match /customers/{customerId} {
+      // Read: user must be authenticated and own the document (RLS).
+      // Admins can read all customer records.
+      allow read: if request.auth != null
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid));
+
+      // Create: authenticated users must set userId to their own UID.
+      // Public (unauthenticated) creates are allowed for the lead capture form
+      // (userId will be empty string for public submissions).
+      allow create: if (request.auth == null
+        && request.resource.data.userId == ""
+        && hasRequiredCustomerFields())
+        || (request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredCustomerFields());
+
+      // Update: user must be authenticated and own the document.
+      // The userId field cannot be changed to a different user.
+      // Admins can update any customer record.
+      allow update: if request.auth != null
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid
+            && request.resource.data.userId == request.auth.uid))
+        && hasRequiredCustomerFields();
+
+      // Delete: user must be authenticated and own the document.
+      // Admins can delete any customer record.
+      allow delete: if request.auth != null
+        && (isAdmin()
+          || ('userId' in resource.data
+            && resource.data.userId == request.auth.uid));
+    }
+
+    // ─── Users Collection ─────────────────────────────────────────
+    // Users can read and update their own profile data.
+    match /users/{userId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // ─── RBAC Collections ─────────────────────────────────────────
+    // All authenticated users can read role definitions. A user can read
+    // only their own role assignments; administrators can manage all data.
+    match /roles/{roleId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users_roles/{assignmentId} {
+      // A signed-in user may get only deterministic assignment documents
+      // that start with their own UID. This supports server-side role checks
+      // without exposing another user's assignments.
+      allow get: if request.auth != null
+        && (isOwnRoleAssignment(assignmentId) || isAdmin());
+
+      // Collection queries must still be constrained by uid == auth.uid.
+      allow list: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Tasks Collection ─────────────────────────────────────────
+    // A task is visible and mutable only to the user who created it.
+    match /tasks/{taskId} {
+      allow read: if request.auth != null
+        && resource.data.createdBy == request.auth.uid;
+
+      allow create: if request.auth != null
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow update: if request.auth != null
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasNone(['createdBy']);
+
+      allow delete: if request.auth != null
+        && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ─── Folders Collection ────────────────────────────────────────
+    // ISO documents are visible to Directors, Accounting and Staffs.
+    match /folders/{folderId} {
+      allow read: if hasIsoDocumentsAccess();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /documents/{documentId} {
+      allow read: if hasIsoDocumentsAccess();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ─── Helper Functions ──────────────────────────────────────────
+    function isAdmin() {
+      return request.auth != null
+        && (('email' in request.auth.token
+          && request.auth.token.email == 'admin@claudecode.ai')
+          || ('roles' in request.auth.token
+            && request.auth.token.roles.hasAny(['admin', 'role-admin']))
+          || hasRole('role-admin'));
+    }
+
+    function hasRole(roleId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users_roles/$(userRoleId(roleId)));
+    }
+
+    function userRoleId(roleId) {
+      return 'ur-' + request.auth.uid + '-' + roleId;
+    }
+
+    function isOwnRoleAssignment(assignmentId) {
+      return assignmentId == userRoleId('role-admin')
+        || assignmentId == userRoleId('role-directors')
+        || assignmentId == userRoleId('role-accounting')
+        || assignmentId == userRoleId('role-staffs')
+        || assignmentId == userRoleId('role-customers')
+        || assignmentId == userRoleId('role-document-manager');
+    }
+
+    function hasIsoDocumentsAccess() {
+      return isAdmin()
+        || hasRole('role-directors')
+        || hasRole('role-accounting')
+        || hasRole('role-staffs');
+    }
+
+    function hasRequiredCustomerFields() {
+      return (request.resource.data.keys().hasAll([
+            'fullName',
+            'email',
+            'phoneNumber',
+            'serviceName'
+          ])
+          && request.resource.data.fullName is string
+          && request.resource.data.fullName.size() > 0
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.phoneNumber is string
+          && request.resource.data.phoneNumber.size() > 0
+          && request.resource.data.serviceName is string
+          && request.resource.data.serviceName.size() > 0)
+        || (request.resource.data.keys().hasAll([
+            'name',
+            'category',
+            'email'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.category is string
+          && request.resource.data.category.size() > 0
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0);
+    }
+  }
+}

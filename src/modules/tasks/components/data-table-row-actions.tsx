@@ -44,7 +44,7 @@ interface DataTableRowActionsProps<TData> {
   row: Row<TData>
   currentUserId?: string | null
   onUpdateTask?: (task: Task) => void | Promise<void>
-  onDeleteTask?: (taskId: string) => void | Promise<void>
+  onDeleteTask?: (task: Task) => void | Promise<void>
   onDuplicateTask?: (task: Task) => void | Promise<void>
 }
 
@@ -129,7 +129,7 @@ export function DataTableRowActions<TData>({
               <DropdownMenuItem
                 className="cursor-pointer"
                 variant="destructive"
-                onClick={() => onDeleteTask?.(task.id)}
+                onClick={() => onDeleteTask?.(task)}
               >
                 Delete
                 <DropdownMenuShortcut className="text-destructive">
